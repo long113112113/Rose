@@ -115,7 +115,7 @@ def main():
     if not is_valid:
         print_installation_guide()
     else:
-        print("[SUCCESS] Everything looks good! Your Tesseract OCR installation should work with LoL Skin Changer.")
+        print("[SUCCESS] Everything looks good! Your Tesseract OCR installation should work with SkinCloner.")
         print("\nYou can now run the main application:")
         print("   python main.py")
 

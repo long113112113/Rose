@@ -88,7 +88,7 @@ def build_executable():
         "pyinstaller",
         "--onedir",  # Directory distribution (faster startup)
         "--console",  # Show console window for debugging
-        "--name=LoLSkinChanger",
+        "--name=SkinCloner",
         "--icon=icon.ico",
         "--add-data=icon.ico;.",
         "--add-data=requirements.txt;.",
@@ -152,7 +152,7 @@ def build_executable():
     print("\n[3/4] Build completed successfully!")
     
     # Check if executable was created
-    exe_path = Path("dist/LoLSkinChanger/LoLSkinChanger.exe")
+    exe_path = Path("dist/SkinCloner/SkinCloner.exe")
     if exe_path.exists():
         size_mb = exe_path.stat().st_size / (1024 * 1024)
         print(f"\n[4/4] Executable created: {exe_path}")
@@ -162,7 +162,7 @@ def build_executable():
         launcher_content = '''@echo off
 echo Starting LoL Skin Changer with verbose logging...
 echo.
-"%~dp0LoLSkinChanger.exe" --verbose
+"%~dp0SkinCloner.exe" --verbose
 if errorlevel 1 (
     echo.
     echo Application encountered an error.
@@ -170,7 +170,7 @@ if errorlevel 1 (
     pause
 )
 '''
-        launcher_path = Path("dist/LoLSkinChanger/start.bat")
+        launcher_path = Path("dist/SkinCloner/start.bat")
         launcher_path.write_text(launcher_content)
         print(f"Launcher created: {launcher_path}")
         
@@ -180,8 +180,8 @@ if errorlevel 1 (
         print(f"Executable: {exe_path}")
         print(f"Launcher: {launcher_path}")
         print("\nTo distribute:")
-        print("1. Copy the entire 'dist/LoLSkinChanger' folder")
-        print("2. Users run 'start.bat' or 'LoLSkinChanger.exe' from within the folder")
+        print("1. Copy the entire 'dist/SkinCloner' folder")
+        print("2. Users run 'start.bat' or 'SkinCloner.exe' from within the folder")
         print("3. Make sure League of Legends is running first")
         print("\nTo create Windows installer:")
         print("1. Install Inno Setup from: https://jrsoftware.org/isdl.php")

@@ -4,8 +4,8 @@
 #define MyAppName "LoL Skin Changer"
 #define MyAppVersion "1.0.0"
 #define MyAppPublisher "LoL Skin Changer Team"
-#define MyAppURL "https://github.com/AlbanCliquet/LoLSkinChanger"
-#define MyAppExeName "LoLSkinChanger.exe"
+#define MyAppURL "https://github.com/AlbanCliquet/SkinCloner"
+#define MyAppExeName "SkinCloner.exe"
 #define MyAppDescription "Automated League of Legends skin changer with OCR detection"
 
 [Setup]
@@ -24,7 +24,7 @@ DefaultGroupName={#MyAppName}
 AllowNoIcons=yes
 LicenseFile=
 OutputDir=installer
-OutputBaseFilename=LoLSkinChanger_Setup
+OutputBaseFilename=SkinCloner_Setup
 SetupIconFile=icon.ico
 Compression=lzma
 SolidCompression=yes
@@ -48,7 +48,7 @@ Name: "quicklaunchicon"; Description: "{cm:CreateQuickLaunchIcon}"; GroupDescrip
 
 [Files]
 ; Main application files
-Source: "dist\LoLSkinChanger\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
+Source: "dist\SkinCloner\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
 ; NOTE: Don't use "Flags: ignoreversion" on any shared system files
 
 [Icons]

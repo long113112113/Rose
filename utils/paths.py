@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-Path utilities for LoL Skin Changer
+Path utilities for SkinCloner
 Handles user data directories and permissions
 """
 
@@ -19,12 +19,12 @@ def get_user_data_dir() -> Path:
         # Use %APPDATA% for user-specific data
         appdata = os.environ.get("APPDATA")
         if appdata:
-            return Path(appdata) / "LoLSkinChanger"
+            return Path(appdata) / "SkinCloner"
         else:
             # Fallback to user profile
             userprofile = os.environ.get("USERPROFILE")
             if userprofile:
-                return Path(userprofile) / "AppData" / "Roaming" / "LoLSkinChanger"
+                return Path(userprofile) / "AppData" / "Roaming" / "SkinCloner"
             else:
                 # Last resort: current directory
                 return Path.cwd() / "skins"
@@ -32,10 +32,10 @@ def get_user_data_dir() -> Path:
         # Use XDG_DATA_HOME or fallback to ~/.local/share
         xdg_data_home = os.environ.get("XDG_DATA_HOME")
         if xdg_data_home:
-            return Path(xdg_data_home) / "LoLSkinChanger"
+            return Path(xdg_data_home) / "SkinCloner"
         else:
             home = os.path.expanduser("~")
-            return Path(home) / ".local" / "share" / "LoLSkinChanger"
+            return Path(home) / ".local" / "share" / "SkinCloner"
 
 
 def get_skins_dir() -> Path:

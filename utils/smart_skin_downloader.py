@@ -27,7 +27,7 @@ class SmartSkinDownloader:
         self.target_dir = target_dir or Path("skins")
         self.session = requests.Session()
         self.session.headers.update({
-            'User-Agent': 'LoLSkinChanger/1.0',
+            'User-Agent': 'SkinCloner/1.0',
             'Accept': 'application/vnd.github.v3+json'
         })
         

@@ -35,7 +35,7 @@ def setup_logging(verbose: bool):
     
     # Add a console print to ensure output is visible
     print("=" * 60, flush=True)
-    print("LoL Skin Changer - Starting...", flush=True)
+    print("SkinCloner - Starting...", flush=True)
     print("=" * 60, flush=True)
     
     # Suppress HTTPS/HTTP logs

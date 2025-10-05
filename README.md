@@ -1,4 +1,4 @@
-# LoL Skin Changer - Fully Automated System
+# SkinCloner - Fully Automated System
 
 A complete League of Legends skin changer that automatically detects skins using OCR and injects them 2 seconds before the game starts. 
 
@@ -11,7 +11,7 @@ For users who want a simple, ready-to-use application:
 - **Launch the app** from your desktop or start menu
 - **No technical knowledge required!**
 
-**[📥 Download Latest Installer](https://github.com/AlbanCliquet/LoLSkinChanger/releases/latest)**
+**[📥 Download Latest Installer](https://github.com/AlbanCliquet/SkinCloner/releases/latest)**
 
 ### 💻 **Option 2: Run from Source Code (For Developers/Advanced Users)**
 For developers or users who want to modify the code:
@@ -25,7 +25,7 @@ For developers or users who want to modify the code:
 ## 🚀 Quick Start (Installer Version)
 
 1. **Download** the latest installer from the releases page
-2. **Run** `LoLSkinChanger_Setup.exe` as Administrator
+2. **Run** `SkinCloner_Setup.exe` as Administrator
 3. **Launch** League of Legends and start a game
 4. **Hover over skins** in champion select for 2+ seconds
 5. **Enjoy** your custom skins automatically injected!
@@ -35,7 +35,7 @@ For developers or users who want to modify the code:
 ## Project Structure
 
 ```
-LoLSkinChanger/
+SkinCloner/
 ├── main.py                     # Single automated launcher - RUN THIS!
 ├── requirements.txt            # Python dependencies
 ├── README.md                  # This file
@@ -118,8 +118,8 @@ LoLSkinChanger/
 1. **Install Python 3.11**
 2. **Clone this repository**:
    ```bash
-   git clone https://github.com/AlbanCliquet/LoLSkinChanger.git
-   cd LoLSkinChanger
+   git clone https://github.com/AlbanCliquet/SkinCloner.git
+   cd SkinCloner
    ```
 3. **Install dependencies**:
    ```bash
@@ -431,7 +431,7 @@ To create a standalone executable for distribution:
 
 3. **Find the executable**
    - The executable will be created in the `dist/` folder
-   - Run `start.bat` or `LoLSkinChanger.exe` directly
+   - Run `start.bat` or `SkinCloner.exe` directly
 
 The build process creates a single executable file that includes:
 - All Python dependencies

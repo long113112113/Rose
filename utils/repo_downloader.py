@@ -27,7 +27,7 @@ class RepoDownloader:
         self.target_dir = target_dir or get_skins_dir()
         self.session = requests.Session()
         self.session.headers.update({
-            'User-Agent': 'LoLSkinChanger/1.0'
+            'User-Agent': 'SkinCloner/1.0'
         })
         
     def download_repo_zip(self) -> Optional[Path]:
