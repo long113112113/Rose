@@ -97,7 +97,12 @@ def setup_logging(verbose: bool):
     root.addHandler(h)
     if file_handler:
         root.addHandler(file_handler)
-    root.setLevel(logging.DEBUG if verbose else logging.INFO)
+    
+    # Set console level based on verbose flag
+    h.setLevel(logging.DEBUG if verbose else logging.INFO)
+    
+    # Always set root level to DEBUG for file logging (good for debugging)
+    root.setLevel(logging.DEBUG)
     
     # Add a console print to ensure output is visible (only if we have stdout and it's not redirected)
     if sys.stdout is not None and not (hasattr(sys.stdout, 'name') and sys.stdout.name == os.devnull):
