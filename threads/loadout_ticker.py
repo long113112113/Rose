@@ -74,6 +74,9 @@ class LoadoutTicker(threading.Thread):
                 remain_ms = prev_remain_ms
             prev_remain_ms = remain_ms
             
+            # Store remaining time in shared state for OCR thread
+            self.state.last_remain_ms = remain_ms
+            
             bucket = remain_ms // 1000
             if bucket != last_bucket:
                 last_bucket = bucket

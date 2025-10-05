@@ -54,6 +54,7 @@ class PhaseThread(threading.Thread):
                 else:
                     # Exit champ select → reset counter/timer
                     self.state.hovered_champ_id = None
+                    self.state.locked_champ_id = None  # Reset locked champion
                     self.state.players_visible = 0
                     self.state.locks_by_cell.clear()
                     self.state.all_locked_announced = False

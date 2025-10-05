@@ -133,12 +133,43 @@ class OCRSkinThread(threading.Thread):
             return False
         
         # Must have locked a champion
-        if not getattr(self.state, "locked_champ_id", None):
+        locked_champ = getattr(self.state, "locked_champ_id", None)
+        if not locked_champ:
+            # Debug: log when we're in ChampSelect but no champion is locked yet
+            if hasattr(self, '_debug_no_lock') and self._debug_no_lock:
+                pass  # Already logged
+            else:
+                log.debug(f"[ocr] In ChampSelect but no champion locked yet (locked_champ_id={locked_champ})")
+                self._debug_no_lock = True
             return False
+        else:
+            # Reset debug flag when champion is locked
+            if hasattr(self, '_debug_no_lock'):
+                delattr(self, '_debug_no_lock')
         
-        # Check if we're within the injection threshold (2 seconds)
-        # This would need to be implemented based on your injection timing logic
-        # For now, we'll assume OCR should run until injection happens
+        # Stop OCR if we're within the injection threshold (2 seconds)
+        # Check if loadout countdown is active and within threshold
+        if (getattr(self.state, 'loadout_countdown_active', False) and 
+            hasattr(self.state, 'current_ticker')):
+            
+            # Get the injection threshold (default 2000ms = 2 seconds)
+            threshold_ms = int(getattr(self.state, 'skin_write_ms', 2000) or 2000)
+            
+            # If we're in the final seconds before injection, stop OCR
+            # This prevents unnecessary OCR processing when injection is imminent
+            if hasattr(self.state, 'last_remain_ms'):
+                remain_ms = getattr(self.state, 'last_remain_ms', 0)
+                if remain_ms <= threshold_ms:
+                    # Log once when OCR stops due to injection threshold
+                    if not hasattr(self, '_ocr_stopped_logged'):
+                        log.info(f"[ocr] OCR stopped - injection threshold reached ({remain_ms}ms <= {threshold_ms}ms)")
+                        self._ocr_stopped_logged = True
+                    return False
+                else:
+                    # Reset the flag when we're outside the threshold
+                    if hasattr(self, '_ocr_stopped_logged'):
+                        delattr(self, '_ocr_stopped_logged')
+        
         return True
 
     def run(self):
