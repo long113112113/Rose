@@ -20,21 +20,17 @@ log = get_logger()
 class TrayManager:
     """Manages the system tray icon for SkinCloner"""
     
-    def __init__(self, quit_callback: Optional[Callable] = None, toggle_terminal_callback: Optional[Callable] = None):
+    def __init__(self, quit_callback: Optional[Callable] = None):
         """
         Initialize the tray manager
         
         Args:
             quit_callback: Function to call when user clicks "Quit"
-            toggle_terminal_callback: Function to call when user clicks "Toggle Terminal"
         """
         self.quit_callback = quit_callback
-        self.toggle_terminal_callback = toggle_terminal_callback
         self.icon = None
         self.tray_thread = None
         self._stop_event = threading.Event()
-        self._terminal_visible = False  # Track terminal visibility state
-        self._console_ctrl_handler = None  # Store console control handler
         
     def _create_icon_image(self) -> Image.Image:
         """Create a simple icon image for the tray"""
@@ -86,125 +82,6 @@ class TrayManager:
         # Fallback to created icon
         return self._create_icon_image()
     
-    def _create_terminal_window(self):
-        """Create a new terminal window for logging"""
-        try:
-            if sys.platform == "win32":
-                # Check if console already exists (allocated at startup)
-                console_hwnd = ctypes.windll.kernel32.GetConsoleWindow()
-                if not console_hwnd:
-                    # Create a new console window
-                    ctypes.windll.kernel32.AllocConsole()
-                    console_hwnd = ctypes.windll.kernel32.GetConsoleWindow()
-                
-                # Set up console window to hide instead of close
-                self._setup_console_close_handler()
-                
-                # Redirect stdout and stderr to the console
-                import msvcrt
-                import os
-                
-                # Get handles for the console
-                stdout_handle = ctypes.windll.kernel32.GetStdHandle(-11)  # STD_OUTPUT_HANDLE
-                stderr_handle = ctypes.windll.kernel32.GetStdHandle(-12)  # STD_ERROR_HANDLE
-                
-                # Create file objects for stdout and stderr
-                stdout_fd = msvcrt.open_osfhandle(stdout_handle, os.O_WRONLY | os.O_TEXT)
-                stderr_fd = msvcrt.open_osfhandle(stderr_handle, os.O_WRONLY | os.O_TEXT)
-                
-                # Replace stdout and stderr
-                sys.stdout = os.fdopen(stdout_fd, 'w')
-                sys.stderr = os.fdopen(stderr_fd, 'w')
-                
-                # Set console title
-                ctypes.windll.kernel32.SetConsoleTitleW("SkinCloner - Log Terminal")
-                
-                # Reinitialize logging to use the new stdout/stderr
-                from utils.logging import setup_logging
-                setup_logging(True)  # Use verbose logging in terminal
-                
-                self._terminal_visible = True
-                log.info("=" * 60)
-                log.info("SkinCloner Terminal - Application Logs")
-                log.info("=" * 60)
-                log.info("Application is running in the background.")
-                log.info("Close this window to hide logs (app continues running).")
-                log.info("=" * 60)
-                log.info("Terminal window shown and stdout/stderr redirected")
-        except Exception as e:
-            log.error(f"Failed to create terminal window: {e}")
-    
-    def _setup_console_close_handler(self):
-        """Set up handler to prevent console window from closing the app"""
-        try:
-            if sys.platform == "win32":
-                # Get the console window handle
-                console_hwnd = ctypes.windll.kernel32.GetConsoleWindow()
-                if console_hwnd:
-                    # Use SetConsoleCtrlHandler to intercept console close events
-                    CTRL_CLOSE_EVENT = 2
-                    
-                    def console_ctrl_handler(ctrl_type):
-                        if ctrl_type == CTRL_CLOSE_EVENT:
-                            # Hide the console instead of closing
-                            ctypes.windll.user32.ShowWindow(console_hwnd, 0)  # SW_HIDE = 0
-                            self._terminal_visible = False
-                            log.info("Terminal window hidden (close intercepted)")
-                            return True  # Indicate we handled the event
-                        return False  # Let other handlers process other events
-                    
-                    # Set up the console control handler
-                    PHANDLER_ROUTINE = ctypes.WINFUNCTYPE(ctypes.c_bool, ctypes.c_uint)
-                    self._console_ctrl_handler = PHANDLER_ROUTINE(console_ctrl_handler)
-                    
-                    # Install the handler
-                    result = ctypes.windll.kernel32.SetConsoleCtrlHandler(self._console_ctrl_handler, True)
-                    if result:
-                        log.info("Console close handler installed")
-                    else:
-                        log.warning("Failed to install console close handler")
-        except Exception as e:
-            log.error(f"Failed to setup console close handler: {e}")
-    
-    def _destroy_terminal_window(self):
-        """Destroy the terminal window"""
-        try:
-            if sys.platform == "win32" and self._terminal_visible:
-                # Remove console control handler if we installed one
-                if hasattr(self, '_console_ctrl_handler'):
-                    ctypes.windll.kernel32.SetConsoleCtrlHandler(self._console_ctrl_handler, False)
-                
-                # Free the console
-                ctypes.windll.kernel32.FreeConsole()
-                self._terminal_visible = False
-                log.info("Terminal window destroyed")
-        except Exception as e:
-            log.error(f"Failed to destroy terminal window: {e}")
-    
-    def _on_toggle_terminal(self, icon, item):
-        """Handle toggle terminal menu item click"""
-        try:
-            if self.toggle_terminal_callback:
-                self.toggle_terminal_callback()
-            else:
-                # Default behavior - toggle terminal window
-                if self._terminal_visible:
-                    # Check if console window is still visible
-                    console_hwnd = ctypes.windll.kernel32.GetConsoleWindow()
-                    if console_hwnd and ctypes.windll.user32.IsWindowVisible(console_hwnd):
-                        # Hide the console window
-                        ctypes.windll.user32.ShowWindow(console_hwnd, 0)  # SW_HIDE = 0
-                        self._terminal_visible = False
-                        log.info("Terminal window hidden")
-                    else:
-                        # Console was already closed/hidden, just update state
-                        self._terminal_visible = False
-                        log.info("Terminal window was already hidden")
-                else:
-                    self._create_terminal_window()
-        except Exception as e:
-            log.error(f"Error in toggle terminal callback: {e}")
-    
     def _on_quit(self, icon, item):
         """Handle quit menu item click"""
         log.info("Quit requested from system tray")
@@ -228,8 +105,6 @@ class TrayManager:
         """Create the context menu for the tray icon"""
         return pystray.Menu(
             pystray.MenuItem("SkinCloner", None, enabled=False),
-            pystray.Menu.SEPARATOR,
-            pystray.MenuItem("Toggle Terminal", self._on_toggle_terminal),
             pystray.Menu.SEPARATOR,
             pystray.MenuItem("Quit", self._on_quit, default=True)
         )
