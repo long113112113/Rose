@@ -131,6 +131,13 @@ def build_executable():
     hidden_imports = [
         "numpy", "cv2", "psutil", "requests", "rapidfuzz",
         "websocket", "mss", "PIL", "PIL.Image", "PIL.ImageTk",
+        "PIL.ImageDraw", "PIL.ImageFont", "PIL.ImageOps",
+        "PIL.ImageFilter", "PIL.ImageEnhance", "PIL.ImageColor",
+        "PIL.ImageFile", "PIL.ImageSequence", "PIL.ImageStat",
+        "PIL.ImageTransform", "PIL.ImageWin", "PIL.ImageGrab",
+        "PIL.ImageMorph", "PIL.ImagePalette", "PIL.ImagePath",
+        "PIL.ImageQt", "PIL.ImageShow", "PIL.ImageMath",
+        "PIL.ImageMode", "PIL.ImageChops", "PIL.ImageCms",
         "tesserocr", "Pillow", "pystray", "pystray._base",
         "pystray._win32", "pystray._darwin", "pystray._gtk",
         "pystray._xorg", "pystray._util"
