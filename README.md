@@ -337,7 +337,7 @@ If you encounter Tesseract-related errors:
 
    - **"tesserocr import error"**:
      - Reinstall tesserocr: `pip install -r requirements.txt`
-     - Ensure you're using the correct Python version (3.11+)
+     - Ensure you're using the correct Python version (3.11)
 
 3. **Manual path specification** (Last resort):
    If automatic detection fails, you can specify paths manually:
@@ -370,7 +370,7 @@ If you encounter Tesseract-related errors:
 
 **For Source Code Version:**
 - Windows 10/11
-- Python 3.11+
+- Python 3.11
 - **⚠️ MANDATORY**: Tesseract OCR installed from [https://github.com/UB-Mannheim/tesseract/releases](https://github.com/UB-Mannheim/tesseract/releases)
 - League of Legends installed
 - CSLOL tools present in `injection/tools/` directory
