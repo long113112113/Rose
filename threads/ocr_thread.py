@@ -87,7 +87,14 @@ class OCRSkinThread(threading.Thread):
                 
                 # Log window detection only every 1 second
                 if (now - self.last_window_log_time) >= self.window_log_interval:
-                    log.debug(f"[ocr] League window found: {client_rect[0]},{client_rect[1]},{client_rect[2]},{client_rect[3]} (client size: {width}x{height})")
+                    # Get window title for debugging
+                    window_title = "Unknown"
+                    if hasattr(find_league_window_rect, 'window_info') and find_league_window_rect.window_info:
+                        for info in find_league_window_rect.window_info:
+                            window_title = info.get('title', 'Unknown')
+                            break
+                    
+                    log.debug(f"[ocr] League window found: '{window_title}' - {client_rect[0]},{client_rect[1]},{client_rect[2]},{client_rect[3]} (client size: {width}x{height})")
                     self.last_window_log_time = now
                 
                 return client_rect
@@ -113,6 +120,10 @@ class OCRSkinThread(threading.Thread):
 
     def _get_roi_abs(self) -> Optional[Tuple[int, int, int, int]]:
         """Get absolute ROI coordinates using FIXED proportions - ALWAYS FRESH"""
+        # Only search for window when OCR is actually running
+        if not self._should_run_ocr():
+            return None
+            
         # Toujours recalculer avec les proportions fixes (pour supporter resize de fenêtre)
         window_rect = self._get_window_rect()
         if not window_rect:

@@ -67,8 +67,10 @@ if is_windows():
             if not IsWindowVisible(hwnd) or IsIconic(hwnd): 
                 return True
             t = _win_text(hwnd).lower()
-            # Look for League client window
-            if "league of legends" in t or "riot client" in t:
+            # Look for League client window - be more specific
+            # We want the actual client window, not splash screens or other components
+            # Must be EXACTLY "League of Legends" - nothing else
+            if t == "league of legends" and "splash" not in t:
                 # Get window rect (with borders)
                 window_rect = _win_rect(hwnd)
                 
@@ -121,6 +123,13 @@ if is_windows():
             rects.sort(key=lambda xyxy: (xyxy[2] - xyxy[0]) * (xyxy[3] - xyxy[1]), reverse=True)
             # Store window info globally for debugging
             find_league_window_rect.window_info = window_info
+            
+            # DEBUG: Log all detected League windows (only when multiple found)
+            if len(window_info) > 1:
+                print(f"[DEBUG] Found {len(window_info)} League windows:")
+                for i, info in enumerate(window_info):
+                    print(f"  {i+1}. Title: '{info['title']}' | Client: {info['client_size']} | Window: {info['window_rect']}")
+            
             return rects[0]
         return None
 
