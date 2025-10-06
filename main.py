@@ -295,6 +295,9 @@ def main():
         log.warning(f"Failed to initialize system tray: {e}")
         log.info("Application will continue without system tray icon")
     
+    # Initialize injection manager early (lazy initialization)
+    injection_manager = InjectionManager()
+    
     # Download skins if enabled (run in background to avoid blocking startup)
     if args.download_skins:
         log.info("Starting automatic skin download in background...")
@@ -303,7 +306,8 @@ def main():
                 success = download_skins_on_startup(
                     force_update=args.force_update_skins,
                     max_champions=args.max_champions,
-                    tray_manager=tray_manager
+                    tray_manager=tray_manager,
+                    injection_manager=injection_manager
                 )
                 if success:
                     log.info("Background skin download completed successfully")
@@ -318,6 +322,8 @@ def main():
         skin_download_thread.start()
     else:
         log.info("Automatic skin download disabled")
+        # Initialize injection system immediately when download is disabled
+        injection_manager.initialize_when_ready()
     
     # Initialize components
     # Initialize LCU first
@@ -392,8 +398,6 @@ def main():
         multilang_db = None
         log.info("Multi-language support disabled")
     
-    # Initialize injection manager
-    injection_manager = InjectionManager()
     
     # Configure skin writing
     state.skin_write_ms = int(getattr(args, 'skin_threshold_ms', 2000) or 2000)
