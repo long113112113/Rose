@@ -254,3 +254,52 @@ DEFAULT_MULTILANG_ENABLED = True
 DEFAULT_DOWNLOAD_SKINS = True
 DEFAULT_FORCE_UPDATE_SKINS = False
 
+
+# =============================================================================
+# THREAD RECOMMENDATIONS
+# =============================================================================
+
+# Champions that should use 2 threads (performance degrades with 3 threads)
+# Based on comprehensive 2 vs 3 thread performance testing
+CHAMPIONS_USE_2_THREADS = {
+    'Shaco',      # 0.47x speedup - severe degradation
+    'Aatrox',     # 0.86x speedup - significant slowdown
+    'Aurora',     # 1.03x speedup - minimal benefit
+    'Hwei',       # 1.07x speedup - minimal benefit  
+    'Milio',      # 1.00x speedup - no benefit
+    'Yunara',     # 1.08x speedup - minimal benefit
+    'Briar',      # 1.10x speedup - minimal benefit
+}
+
+# Champions that should use 3 threads (strong performance improvement)
+# Based on comprehensive 2 vs 3 thread performance testing
+CHAMPIONS_USE_3_THREADS = {
+    # Strongly recommend 3 threads (1.30x+ speedup)
+    'Zoe', 'Vel\'Koz', 'Maokai', 'Amumu', 'Rammus', 'Swain', 'Zyra', 'Syndra', 'Zed',
+    'Akshan', 'Dr. Mundo', 'Karthus', 'Taliyah', 'Trundle', 'Zac', 'Zeri', 'Malzahar',
+    'Nocturne', 'Viktor', 'Yorick', 'Ziggs', 'Corki', 'Fizz', 'Lulu', 'Nunu & Willump',
+    'Rek\'Sai', 'Samira', 'Cassiopeia', 'Ekko', 'K\'Sante', 'Alistar', 'Kog\'Maw',
+    'LeBlanc', 'Soraka', 'Aurelion Sol', 'Camille', 'Kalista', 'Kayn', 'Olaf', 'Poppy',
+    'Twitch', 'Urgot', 'Vex', 'Azir', 'Gragas', 'Illaoi', 'Kled', 'Yuumi', 'Caitlyn',
+    'Elise', 'Fiddlesticks', 'Renekton', 'Xin Zhao', 'Bel\'Veth', 'Darius', 'Garen',
+    'Kennen', 'Lillia', 'Rakan', 'Sett', 'Warwick',
+    
+    # Recommend 3 threads (1.10x-1.30x speedup)  
+    'Aphelios', 'Braum', 'Gnar', 'Karma', 'Lee Sin', 'Malphite', 'Mordekaiser', 'Neeko',
+    'Pantheon', 'Rengar', 'Wukong', 'Diana', 'Janna', 'Naafiri', 'Ornn', 'Tahm Kench',
+    'Xayah', 'Xerath', 'Cho\'Gath', 'Nilah', 'Rumble', 'Singed', 'Skarner', 'Thresh',
+    'Yasuo', 'Jax', 'Morgana', 'Nidalee', 'Seraphine', 'Shyvana', 'Talon', 'Tryndamere',
+    'Viego', 'Volibear', 'Ezreal', 'Fiora', 'Graves', 'Gwen', 'Jayce', 'Jhin', 'Lux',
+    'Nautilus', 'Pyke', 'Teemo', 'Leona', 'Lissandra', 'Miss Fortune', 'Nasus', 'Qiyana',
+    'Renata Glasc', 'Senna', 'Sion', 'Draven', 'Vi', 'Annie', 'Ashe', 'Evelynn',
+    'Gangplank', 'Hecarim', 'Heimerdinger', 'Kassadin', 'Katarina', 'Master Yi',
+    'Orianna', 'Quinn', 'Taric', 'Twisted Fate', 'Veigar', 'Ambessa', 'Anivia',
+    'Blitzcrank', 'Galio', 'Ivern', 'Kai\'Sa', 'Kayle', 'Kindred', 'Jarvan IV',
+    'Jinx', 'Riven', 'Shen', 'Yone', 'Bard', 'Kha\'Zix', 'Nami', 'Sejuani',
+    'Vladimir', 'Zilean', 'Sivir', 'Sylas', 'Tristana', 'Brand', 'Rell', 'Udyr',
+    'Akali', 'Ahri', 'Irelia', 'Lucian', 'Sona', 'Vayne', 'Smolder', 'Varus',
+    'Mel', 'Ryze'
+}
+
+# Default thread count for unknown champions
+DEFAULT_THREAD_COUNT = 3  # Most champions benefit from 3 threads
