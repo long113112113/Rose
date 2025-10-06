@@ -6,6 +6,7 @@ Handles the actual skin injection using CSLOL tools
 """
 
 import subprocess
+import time
 from pathlib import Path
 from typing import List, Dict, Optional
 import zipfile
@@ -35,6 +36,9 @@ class SkinInjector:
         
         # Track current overlay process
         self.current_overlay_process = None
+        
+        # Store last injection timing data
+        self.last_injection_timing = None
         
         # Check for CSLOL tools
         self._download_cslol_tools()
@@ -199,13 +203,14 @@ class SkinInjector:
         names_str = "/".join(mod_names)
         gpath = str(self.game_dir)
 
-        # Create overlay
+        # Create overlay (this is the actual injection work)
         cmd = [
             str(exe), "mkoverlay", str(self.mods_dir), str(overlay_dir),
             f"--game:{gpath}", f"--mods:{names_str}", "--noTFT"
         ]
         
         log.info(f"Injector: Creating overlay: {' '.join(cmd)}")
+        mkoverlay_start = time.time()
         try:
             # Hide console window on Windows
             import sys
@@ -216,9 +221,18 @@ class SkinInjector:
             
             proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, creationflags=creationflags)
             stdout, _ = proc.communicate(timeout=timeout)
+            mkoverlay_duration = time.time() - mkoverlay_start
+            
             if proc.returncode != 0:
                 log.error(f"Injector: mkoverlay failed: {stdout}")
                 return proc.returncode
+            else:
+                log.info(f"Injector: mkoverlay completed in {mkoverlay_duration:.2f}s - injection applied, game can start")
+                # Store timing data for external access
+                self.last_injection_timing = {
+                    'mkoverlay_duration': mkoverlay_duration,
+                    'timestamp': time.time()
+                }
         except subprocess.TimeoutExpired:
             log.error("Injector: mkoverlay timeout")
             return 124
@@ -234,6 +248,7 @@ class SkinInjector:
         ]
         
         log.info(f"Injector: Running overlay: {' '.join(cmd)}")
+        
         try:
             # Hide console window on Windows
             import sys
@@ -246,7 +261,6 @@ class SkinInjector:
             self.current_overlay_process = proc
             
             # Monitor process with stop callback
-            import time
             start_time = time.time()
             while proc.poll() is None:
                 # Check if we should stop (game ended)
@@ -288,9 +302,61 @@ class SkinInjector:
             log.error(f"Injector: runoverlay error: {e}")
             return 1
     
+    def _mk_overlay_only(self, mod_names: List[str], timeout: int = 60) -> int:
+        """Create overlay using mkoverlay only (no runoverlay) - for testing"""
+        try:
+            # Build mkoverlay command
+            cmd = [
+                str(self.tools_dir / "mod-tools.exe"),
+                "mkoverlay",
+                str(self.mods_dir),
+                str(self.mods_dir.parent / "overlay"),
+                f"--game:{self.game_dir}",
+                f"--mods:{','.join(mod_names)}",
+                "--noTFT"
+            ]
+            
+            log.info(f"Injector: Creating overlay (mkoverlay only): {' '.join(cmd)}")
+            mkoverlay_start = time.time()
+            
+            # Set creation flags for Windows
+            import sys
+            creationflags = 0
+            if sys.platform == "win32":
+                creationflags = subprocess.CREATE_NO_WINDOW
+            
+            try:
+                proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, creationflags=creationflags)
+                stdout, _ = proc.communicate(timeout=timeout)
+                mkoverlay_duration = time.time() - mkoverlay_start
+                
+                if proc.returncode != 0:
+                    log.error(f"Injector: mkoverlay failed: {stdout}")
+                    return proc.returncode
+                else:
+                    log.info(f"Injector: mkoverlay completed in {mkoverlay_duration:.2f}s - injection applied, game can start")
+                    self.last_injection_timing = {
+                        'mkoverlay_duration': mkoverlay_duration,
+                        'timestamp': time.time()
+                    }
+                    return 0
+                    
+            except subprocess.TimeoutExpired:
+                log.error(f"Injector: mkoverlay timed out after {timeout}s")
+                proc.kill()
+                return -1
+            except Exception as e:
+                log.error(f"Injector: mkoverlay failed with exception: {e}")
+                return -1
+                
+        except Exception as e:
+            log.error(f"Injector: Failed to create mkoverlay command: {e}")
+            return -1
+    
     def inject_skin(self, skin_name: str, timeout: int = 60, stop_callback=None) -> bool:
         """Inject a single skin"""
         log.info(f"Injector: Starting injection for: {skin_name}")
+        injection_start_time = time.time()
         
         # Find the skin ZIP
         zp = self._resolve_zip(skin_name)
@@ -306,13 +372,75 @@ class SkinInjector:
         log.info(f"Injector: Using skin file: {zp}")
         
         # Clean mods and overlay directories, then extract new skin
+        clean_start = time.time()
         self._clean_mods_dir()
         self._clean_overlay_dir()
+        clean_duration = time.time() - clean_start
+        log.debug(f"Injector: Directory cleanup took {clean_duration:.2f}s")
+        
+        extract_start = time.time()
         mod_folder = self._extract_zip_to_mod(zp)
+        extract_duration = time.time() - extract_start
+        log.debug(f"Injector: ZIP extraction took {extract_duration:.2f}s")
         
         # Create and run overlay
+        injection_work_start = time.time()
         result = self._mk_run_overlay([mod_folder.name], timeout, stop_callback)
+        
+        # Calculate injection work duration (up to mkoverlay completion, not including runoverlay runtime)
+        injection_work_duration = time.time() - injection_work_start
+        
+        total_duration = time.time() - injection_start_time
+        log.info(f"Injector: Injection work completed in {injection_work_duration:.2f}s (clean: {clean_duration:.2f}s, extract: {extract_duration:.2f}s, mkoverlay: {injection_work_duration:.2f}s)")
+        log.debug(f"Injector: Total process time: {total_duration:.2f}s (includes runoverlay runtime)")
+        
         return result == 0
+    
+    def inject_skin_for_testing(self, skin_name: str) -> bool:
+        """Inject a skin for testing - stops overlay immediately after mkoverlay"""
+        try:
+            log.info(f"Injector: Starting test injection for: {skin_name}")
+            
+            # Find the skin ZIP
+            zp = self._resolve_zip(skin_name)
+            if not zp:
+                log.error(f"Injector: Skin '{skin_name}' not found in {self.zips_dir}")
+                return False
+            
+            log.info(f"Injector: Using skin file: {zp}")
+            
+            # Clean and extract
+            injection_start_time = time.time()
+            self._clean_mods_dir()
+            clean_duration = time.time() - injection_start_time
+            
+            extract_start_time = time.time()
+            mod_folder = self._extract_zip_to_mod(zp)
+            extract_duration = time.time() - extract_start_time
+            
+            if not mod_folder:
+                log.error(f"Injector: Failed to extract skin: {skin_name}")
+                return False
+            
+            # Run mkoverlay only (no runoverlay)
+            injection_work_start = time.time()
+            result = self._mk_overlay_only([mod_folder.name])
+            injection_work_duration = time.time() - injection_work_start
+            
+            total_duration = time.time() - injection_start_time
+            
+            if result == 0:
+                log.info(f"Injector: Test injection successful: ['{skin_name}']")
+                log.info(f"Injector: Test injection work completed in {injection_work_duration:.2f}s (clean: {clean_duration:.2f}s, extract: {extract_duration:.2f}s, mkoverlay: {injection_work_duration:.2f}s)")
+                log.debug(f"Injector: Total process time: {total_duration:.2f}s")
+                return True
+            else:
+                log.error(f"Injector: Test injection failed with code: {result}")
+                return False
+                
+        except Exception as e:
+            log.error(f"Injector: Test injection failed: {e}")
+            return False
     
     def clean_system(self) -> bool:
         """Clean the injection system"""

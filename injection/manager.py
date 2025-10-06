@@ -57,14 +57,19 @@ class InjectionManager:
                 current_time - self.last_injection_time >= self.injection_threshold):
                 
                 log.info(f"[INJECT] Starting injection for: {skin_name}")
+                injection_start_time = time.time()
                 success = self.injector.inject_skin(skin_name)
+                
+                # Note: The actual injection work duration is logged by the injector itself
+                # This duration includes the full process including runoverlay runtime
+                total_duration = time.time() - injection_start_time
                 
                 if success:
                     self.last_skin_name = skin_name
                     self.last_injection_time = current_time
-                    log.info(f"[INJECT] Successfully injected: {skin_name}")
+                    log.info(f"[INJECT] Successfully injected: {skin_name} (total process: {total_duration:.2f}s)")
                 else:
-                    log.error(f"[INJECT] Failed to inject: {skin_name}")
+                    log.error(f"[INJECT] Failed to inject: {skin_name} (total process: {total_duration:.2f}s)")
     
     def inject_skin_immediately(self, skin_name: str, stop_callback=None) -> bool:
         """Immediately inject a specific skin"""
@@ -72,10 +77,42 @@ class InjectionManager:
         
         with self.injection_lock:
             log.info(f"[INJECT] Immediate injection for: {skin_name}")
+            injection_start_time = time.time()
             success = self.injector.inject_skin(skin_name, stop_callback=stop_callback)
+            
+            # Note: The actual injection work duration is logged by the injector itself
+            # This duration includes the full process including runoverlay runtime
+            total_duration = time.time() - injection_start_time
+            
             if success:
                 self.last_skin_name = skin_name
                 self.last_injection_time = time.time()
+                log.info(f"[INJECT] Immediate injection successful: {skin_name} (total process: {total_duration:.2f}s)")
+            else:
+                log.error(f"[INJECT] Immediate injection failed: {skin_name} (total process: {total_duration:.2f}s)")
+            return success
+    
+    def inject_skin_for_testing(self, skin_name: str) -> bool:
+        """Inject a skin for testing purposes - stops overlay immediately after mkoverlay"""
+        if not skin_name:
+            return False
+            
+        self._ensure_initialized()
+        with self.injection_lock:
+            log.info(f"[INJECT] Test injection for: {skin_name}")
+            injection_start_time = time.time()
+            
+            # Use the injector's method that stops overlay after mkoverlay
+            success = self.injector.inject_skin_for_testing(skin_name)
+            
+            total_duration = time.time() - injection_start_time
+            
+            if success:
+                self.last_skin_name = skin_name
+                self.last_injection_time = time.time()
+                log.info(f"[INJECT] Test injection successful: {skin_name} (total process: {total_duration:.2f}s)")
+            else:
+                log.error(f"[INJECT] Test injection failed: {skin_name} (total process: {total_duration:.2f}s)")
             return success
     
     def clean_system(self) -> bool:
