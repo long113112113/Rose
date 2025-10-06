@@ -181,9 +181,10 @@ class RepoDownloader:
         return stats
 
 
-def download_skins_from_repo(target_dir: Path = None, force_update: bool = False) -> bool:
+def download_skins_from_repo(target_dir: Path = None, force_update: bool = False, tray_manager=None) -> bool:
     """Download all skins from repository in one operation"""
     try:
+        # Note: tray_manager status is already set by caller (download_skins_on_startup)
         downloader = RepoDownloader(target_dir)
         
         # Get current stats

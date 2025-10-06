@@ -201,14 +201,21 @@ class SkinDownloader:
 
 
 def download_skins_on_startup(target_dir: Path = None, force_update: bool = False, 
-                            max_champions: Optional[int] = None) -> bool:
+                            max_champions: Optional[int] = None, tray_manager=None) -> bool:
     """Convenience function to download skins at startup - tries multiple methods"""
     try:
+        # Set downloading status on tray icon
+        if tray_manager:
+            tray_manager.set_downloading(True)
+        
         # Method 1: Try repository ZIP download (most efficient)
         try:
             from utils.repo_downloader import download_skins_from_repo
             log.info("Using repository ZIP downloader (most efficient)...")
-            return download_skins_from_repo(target_dir, force_update)
+            result = download_skins_from_repo(target_dir, force_update, tray_manager)
+            if tray_manager:
+                tray_manager.set_downloading(False)
+            return result
         except ImportError:
             log.debug("Repository downloader not available")
         
@@ -216,7 +223,10 @@ def download_skins_on_startup(target_dir: Path = None, force_update: bool = Fals
         try:
             from utils.smart_skin_downloader import download_skins_smart
             log.info("Using smart skin downloader with rate limiting...")
-            return download_skins_smart(target_dir, force_update, max_champions)
+            result = download_skins_smart(target_dir, force_update, max_champions, tray_manager)
+            if tray_manager:
+                tray_manager.set_downloading(False)
+            return result
         except ImportError:
             log.debug("Smart downloader not available")
         
@@ -243,8 +253,12 @@ def download_skins_on_startup(target_dir: Path = None, force_update: bool = Fals
         else:
             log.info("No new skins to download")
         
+        if tray_manager:
+            tray_manager.set_downloading(False)
         return True
         
     except Exception as e:
         log.error(f"Failed to download skins: {e}")
+        if tray_manager:
+            tray_manager.set_downloading(False)
         return False

@@ -276,9 +276,10 @@ class SmartSkinDownloader:
 
 
 def download_skins_smart(target_dir: Path = None, force_update: bool = False, 
-                        max_champions: Optional[int] = None) -> bool:
+                        max_champions: Optional[int] = None, tray_manager=None) -> bool:
     """Smart skin download with proper rate limiting"""
     try:
+        # Note: tray_manager status is already set by caller (download_skins_on_startup)
         downloader = SmartSkinDownloader(target_dir)
         
         # Get current stats

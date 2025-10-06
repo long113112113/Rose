@@ -288,6 +288,9 @@ def main():
         tray_manager = TrayManager(quit_callback=tray_quit_callback)
         tray_manager.start()
         log.info("System tray icon initialized - console hidden")
+        
+        # Give tray icon a moment to fully initialize
+        time.sleep(0.2)
     except Exception as e:
         log.warning(f"Failed to initialize system tray: {e}")
         log.info("Application will continue without system tray icon")
@@ -299,7 +302,8 @@ def main():
             try:
                 success = download_skins_on_startup(
                     force_update=args.force_update_skins,
-                    max_champions=args.max_champions
+                    max_champions=args.max_champions,
+                    tray_manager=tray_manager
                 )
                 if success:
                     log.info("Background skin download completed successfully")

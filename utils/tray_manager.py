@@ -31,6 +31,8 @@ class TrayManager:
         self.icon = None
         self.tray_thread = None
         self._stop_event = threading.Event()
+        self._is_downloading = False
+        self._base_icon_image = None
         
     def _create_icon_image(self) -> Image.Image:
         """Create a simple icon image for the tray"""
@@ -82,6 +84,25 @@ class TrayManager:
         # Fallback to created icon
         return self._create_icon_image()
     
+    def _add_orange_dot(self, base_image: Image.Image) -> Image.Image:
+        """Add an orange dot to the icon to indicate downloading"""
+        # Create a copy to avoid modifying the original
+        image = base_image.copy()
+        draw = ImageDraw.Draw(image)
+        
+        # Draw orange dot in bottom-right corner
+        dot_size = 20
+        x = image.width - dot_size - 4
+        y = image.height - dot_size - 4
+        
+        # Draw the dot with a border for better visibility
+        draw.ellipse([x, y, x + dot_size, y + dot_size], 
+                    fill=(255, 140, 0, 255),  # Orange
+                    outline=(200, 100, 0, 255),  # Darker orange border
+                    width=2)
+        
+        return image
+    
     def _on_quit(self, icon, item):
         """Handle quit menu item click"""
         log.info("Quit requested from system tray")
@@ -117,7 +138,9 @@ class TrayManager:
     def _run_tray(self):
         """Run the tray icon in a separate thread"""
         try:
-            icon_image = self._get_icon_image()
+            # Store base icon for later use
+            self._base_icon_image = self._get_icon_image()
+            icon_image = self._base_icon_image
             menu = self._create_menu()
             
             self.icon = pystray.Icon(
@@ -174,3 +197,38 @@ class TrayManager:
             True if quit was requested, False if timeout
         """
         return self._stop_event.wait(timeout)
+    
+    def set_downloading(self, is_downloading: bool):
+        """
+        Update the tray icon to show downloading status
+        
+        Args:
+            is_downloading: True to show orange dot, False to show normal icon
+        """
+        # Wait for tray icon to be ready (up to 5 seconds)
+        max_wait = 5.0
+        wait_interval = 0.1
+        elapsed = 0.0
+        
+        while (not self.icon or not self._base_icon_image) and elapsed < max_wait:
+            threading.Event().wait(wait_interval)
+            elapsed += wait_interval
+        
+        if not self.icon or not self._base_icon_image:
+            log.warning(f"Tray icon not ready, cannot set downloading status to {is_downloading}")
+            return
+        
+        try:
+            self._is_downloading = is_downloading
+            
+            if is_downloading:
+                # Show icon with orange dot
+                new_icon = self._add_orange_dot(self._base_icon_image)
+                self.icon.icon = new_icon
+                log.info("Orange icon on")
+            else:
+                # Show normal icon
+                self.icon.icon = self._base_icon_image
+                log.info("Orange icon off")
+        except Exception as e:
+            log.error(f"Failed to update tray icon: {e}")
