@@ -128,8 +128,7 @@ BASE_SKIN_VERIFICATION_WAIT_S = 0.15 # Seconds to wait for LCU to process base s
 
 # Game delay strategies
 ENABLE_PRIORITY_BOOST = True         # Boost injection process priority to HIGH
-ENABLE_GAME_THROTTLE = False         # Lower game process priority to IDLE (aggressive slowdown)
-ENABLE_GAME_SUSPENSION = False       # Suspend game process during injection (NUCLEAR - may trigger anti-cheat)
+ENABLE_GAME_SUSPENSION = True        # Suspend game process during injection (RISKY - may trigger anti-cheat)
 
 
 # =============================================================================

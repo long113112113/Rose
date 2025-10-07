@@ -142,6 +142,14 @@ class OCRSkinThread(threading.Thread):
         self.motion_until = 0.0
         self.last_ocr_t = 0.0
         self.second_shot_at = 0.0
+        
+        # Reset logging flags so they can log again in next session
+        if hasattr(self, '_ocr_stopped_injection_logged'):
+            delattr(self, '_ocr_stopped_injection_logged')
+        if hasattr(self, '_ocr_stopped_logged'):
+            delattr(self, '_ocr_stopped_logged')
+        if hasattr(self, '_ocr_stopped_focus_logged'):
+            delattr(self, '_ocr_stopped_focus_logged')
 
     def _should_run_ocr(self) -> bool:
         """Check if OCR should be running based on conditions"""

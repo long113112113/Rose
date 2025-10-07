@@ -259,19 +259,28 @@ class LoadoutTicker(threading.Thread):
                                     # Only stop after we've been in InProgress and then left it
                                     return has_been_in_progress and self.state.phase != "InProgress"
                                 
-                                # Inject skin
+                                # Inject skin in a separate thread to avoid blocking the ticker
                                 log.info(f"[inject] Starting injection: {name}")
-                                success = self.injection_manager.inject_skin_immediately(name, stop_callback=game_ended_callback)
                                 
-                                # Set flag to prevent OCR from restarting (even if processes errored)
-                                self.state.injection_completed = True
+                                def run_injection():
+                                    try:
+                                        success = self.injection_manager.inject_skin_immediately(name, stop_callback=game_ended_callback)
+                                        
+                                        # Set flag to prevent OCR from restarting (even if processes errored)
+                                        self.state.injection_completed = True
+                                        
+                                        if success:
+                                            log.info(f"[inject] Injection process completed for: {name}")
+                                            log.info(f"[inject] ⚠ Verify in-game - timing determines if skin appears")
+                                        else:
+                                            log.error(f"[inject] ✗ Injection process encountered errors: {name}")
+                                            log.error(f"[inject] Skin will likely NOT appear in-game")
+                                    except Exception as e:
+                                        log.error(f"[inject] injection thread error: {e}")
+                                        self.state.injection_completed = True  # Set flag even on error
                                 
-                                if success:
-                                    log.info(f"[inject] Injection process completed for: {name}")
-                                    log.info(f"[inject] ⚠ Verify in-game - timing determines if skin appears")
-                                else:
-                                    log.error(f"[inject] ✗ Injection process encountered errors: {name}")
-                                    log.error(f"[inject] Skin will likely NOT appear in-game")
+                                injection_thread = threading.Thread(target=run_injection, daemon=True, name="InjectionThread")
+                                injection_thread.start()
                             except Exception as e:
                                 log.error(f"[inject] injection error: {e}")
                         else:

@@ -33,6 +33,7 @@ class InjectionManager:
         self.injection_lock = threading.Lock()
         self._initialized = False
         self.current_champion = None
+        self._injection_in_progress = False  # Track if injection is running
     
     def _ensure_initialized(self):
         """Initialize the injector lazily when first needed"""
@@ -83,7 +84,21 @@ class InjectionManager:
         """Immediately inject a specific skin"""
         self._ensure_initialized()
         
-        with self.injection_lock:
+        # Check if injection already in progress
+        if self._injection_in_progress:
+            log.warning(f"[INJECT] Injection already in progress - skipping request for: {skin_name}")
+            return False
+        
+        # Try to acquire lock with timeout to prevent indefinite blocking
+        lock_acquired = self.injection_lock.acquire(timeout=2.0)
+        if not lock_acquired:
+            log.warning(f"[INJECT] Could not acquire injection lock - another injection in progress")
+            return False
+        
+        try:
+            self._injection_in_progress = True
+            log.debug(f"[INJECT] Injection started - lock acquired for: {skin_name}")
+            
             success = self.injector.inject_skin(skin_name, stop_callback=stop_callback)
             
             if success:
@@ -91,6 +106,10 @@ class InjectionManager:
                 self.last_injection_time = time.time()
             
             return success
+        finally:
+            self._injection_in_progress = False
+            self.injection_lock.release()
+            log.debug(f"[INJECT] Injection completed - lock released")
     
     def inject_skin_for_testing(self, skin_name: str) -> bool:
         """Inject a skin for testing purposes - stops overlay immediately after mkoverlay"""
@@ -148,8 +167,15 @@ class InjectionManager:
         """Kill all runoverlay processes (for ChampSelect cleanup)"""
         if not self._initialized:
             return  # Nothing to kill if not initialized
-            
-        try:
-            self.injector.kill_all_runoverlay_processes()
-        except Exception as e:
-            log.warning(f"Injection: Failed to kill runoverlay processes: {e}")
+        
+        # Run cleanup in a separate thread to avoid blocking phase transitions
+        def cleanup_thread():
+            try:
+                log.debug("[INJECT] Starting cleanup thread for runoverlay processes")
+                self.injector.kill_all_runoverlay_processes()
+                log.debug("[INJECT] Cleanup thread completed")
+            except Exception as e:
+                log.warning(f"Injection: Cleanup thread failed: {e}")
+        
+        cleanup = threading.Thread(target=cleanup_thread, daemon=True, name="CleanupThread")
+        cleanup.start()

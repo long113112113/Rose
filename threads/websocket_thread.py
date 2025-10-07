@@ -118,6 +118,7 @@ class WSEventThread(threading.Thread):
                             log.warning(f"WS: Failed to kill runoverlay processes: {e}")
                 
                 elif ph == "ChampSelect":
+                    log.info("[WS] Entering ChampSelect - resetting state for new game")
                     self.state.last_hovered_skin_key = None
                     self.state.last_hovered_skin_id = None
                     self.state.last_hovered_skin_slug = None
@@ -125,10 +126,12 @@ class WSEventThread(threading.Thread):
                     self.state.owned_skin_ids.clear()  # Clear owned skins (will be refreshed on champion lock)
                     self.state.last_hover_written = False
                     self.state.injection_completed = False  # Reset injection flag for new game
+                    self.state.loadout_countdown_active = False  # Reset countdown state
                     try: 
                         self.state.processed_action_ids.clear()
                     except Exception: 
                         self.state.processed_action_ids = set()
+                    log.debug("[WS] State reset complete - ready for new champion select")
                         
                 
                 elif ph == "InProgress":
