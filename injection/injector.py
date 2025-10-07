@@ -14,7 +14,7 @@ import shutil
 
 from utils.logging import get_logger
 from utils.paths import get_skins_dir, get_injection_dir
-from constants import PROCESS_TERMINATE_TIMEOUT_S, PROCESS_MONITOR_SLEEP_S, ENABLE_PRIORITY_BOOST
+from constants import PROCESS_TERMINATE_TIMEOUT_S, PROCESS_MONITOR_SLEEP_S, ENABLE_PRIORITY_BOOST, ENABLE_GAME_THROTTLE, ENABLE_GAME_SUSPENSION
 
 log = get_logger()
 
@@ -381,6 +381,8 @@ class SkinInjector:
     def inject_skin(self, skin_name: str, timeout: int = 60, stop_callback=None) -> bool:
         """Inject a single skin"""
         injection_start_time = time.time()
+        game_process_throttled = None
+        game_process_suspended = None
         
         # Find the skin ZIP
         zp = self._resolve_zip(skin_name)
@@ -395,34 +397,168 @@ class SkinInjector:
         
         log.debug(f"Injector: Using skin file: {zp}")
         
-        # Clean mods and overlay directories, then extract new skin
-        clean_start = time.time()
-        self._clean_mods_dir()
-        self._clean_overlay_dir()
-        clean_duration = time.time() - clean_start
-        log.debug(f"Injector: Directory cleanup took {clean_duration:.2f}s")
+        # Start game process monitor thread if delay strategies enabled
+        game_monitor_active = False
+        if ENABLE_GAME_THROTTLE or ENABLE_GAME_SUSPENSION:
+            import threading
+            game_monitor_active = True
+            
+            def monitor_and_throttle_game():
+                """Monitor for game process and throttle it when it starts"""
+                try:
+                    import psutil
+                    import time
+                    
+                    log.info("GameMonitor: Started - waiting for League of Legends.exe...")
+                    
+                    # DEBUG: List all League-related processes currently running
+                    league_procs = []
+                    for p in psutil.process_iter(['name', 'pid']):
+                        if 'league' in p.info['name'].lower():
+                            league_procs.append(f"{p.info['name']} (PID={p.info['pid']})")
+                    if league_procs:
+                        log.info(f"GameMonitor: Current League processes: {', '.join(league_procs)}")
+                    else:
+                        log.info("GameMonitor: No League processes running yet")
+                    
+                    max_wait = 20.0  # Wait up to 20 seconds for game to start
+                    start_wait = time.time()
+                    check_count = 0
+                    
+                    while time.time() - start_wait < max_wait and game_monitor_active:
+                        check_count += 1
+                        found_game = False
+                        
+                        # Log every 2 seconds to show we're checking
+                        if check_count % 40 == 0:  # Every 2 seconds (40 * 50ms)
+                            elapsed = time.time() - start_wait
+                            log.info(f"GameMonitor: Still waiting for game process... ({elapsed:.1f}s elapsed)")
+                        
+                        for proc in psutil.process_iter(['name', 'pid']):
+                            if proc.info['name'] == 'League of Legends.exe':
+                                try:
+                                    game_proc = psutil.Process(proc.info['pid'])
+                                    found_game = True
+                                    
+                                    log.info(f"GameMonitor: ✓ FOUND League of Legends.exe (PID={proc.info['pid']})")
+                                    
+                                    # Check process status before attempting to modify it
+                                    proc_status = game_proc.status()
+                                    log.info(f"GameMonitor: Process status: {proc_status}")
+                                    
+                                    if ENABLE_GAME_SUSPENSION:
+                                        try:
+                                            game_proc.suspend()
+                                            nonlocal game_process_suspended
+                                            game_process_suspended = game_proc
+                                            log.info(f"GameMonitor: ✓ SUSPENDED game process successfully")
+                                        except psutil.AccessDenied as e:
+                                            log.error(f"GameMonitor: ✗ ACCESS DENIED - Cannot suspend (need admin rights?)")
+                                            log.error(f"GameMonitor: Try running SkinCloner as Administrator")
+                                            return
+                                        except Exception as e:
+                                            log.error(f"GameMonitor: ✗ Failed to suspend: {type(e).__name__}: {e}")
+                                            return
+                                            
+                                    elif ENABLE_GAME_THROTTLE:
+                                        try:
+                                            game_proc.nice(psutil.IDLE_PRIORITY_CLASS)
+                                            nonlocal game_process_throttled
+                                            game_process_throttled = game_proc
+                                            log.info(f"GameMonitor: ✓ Throttled game to IDLE priority")
+                                        except psutil.AccessDenied as e:
+                                            log.error(f"GameMonitor: ✗ ACCESS DENIED - Cannot throttle (need admin rights?)")
+                                            log.error(f"GameMonitor: Try running SkinCloner as Administrator")
+                                            return
+                                        except Exception as e:
+                                            log.error(f"GameMonitor: ✗ Failed to throttle: {type(e).__name__}: {e}")
+                                            return
+                                    
+                                    log.info(f"GameMonitor: Game delay active - injection can take up to {max_wait}s")
+                                    return  # Found and throttled, exit
+                                    
+                                except psutil.NoSuchProcess:
+                                    log.debug(f"GameMonitor: Process {proc.info['pid']} disappeared before we could access it")
+                                    continue  # Keep looking
+                                except Exception as proc_error:
+                                    log.error(f"GameMonitor: ✗ Unexpected error: {type(proc_error).__name__}: {proc_error}")
+                                    log.error(f"GameMonitor: Process PID={proc.info['pid']}, Name={proc.info['name']}")
+                                    return  # Exit on error
+                        
+                        time.sleep(0.05)  # Check every 50ms
+                    
+                    if time.time() - start_wait >= max_wait:
+                        log.warning(f"GameMonitor: ✗ Game process NOT FOUND after {max_wait}s - no throttling applied")
+                        
+                        # DEBUG: Show what processes ARE running
+                        league_procs = []
+                        for p in psutil.process_iter(['name', 'pid']):
+                            if 'league' in p.info['name'].lower():
+                                league_procs.append(f"{p.info['name']} (PID={p.info['pid']})")
+                        if league_procs:
+                            log.warning(f"GameMonitor: League processes found: {', '.join(league_procs)}")
+                        else:
+                            log.warning("GameMonitor: No League processes found at all!")
+                    elif not game_monitor_active:
+                        log.info("GameMonitor: Stopped before finding game process")
+                        
+                except Exception as e:
+                    log.error(f"GameMonitor: Error: {e}")
+            
+            # Start monitor thread
+            monitor_thread = threading.Thread(target=monitor_and_throttle_game, daemon=True)
+            monitor_thread.start()
+            log.info(f"GameMonitor: Background monitor started ({'SUSPENSION' if ENABLE_GAME_SUSPENSION else 'THROTTLE'} mode)")
         
-        extract_start = time.time()
-        mod_folder = self._extract_zip_to_mod(zp)
-        extract_duration = time.time() - extract_start
-        log.debug(f"Injector: ZIP extraction took {extract_duration:.2f}s")
+        try:
+            # Clean mods and overlay directories, then extract new skin
+            clean_start = time.time()
+            self._clean_mods_dir()
+            self._clean_overlay_dir()
+            clean_duration = time.time() - clean_start
+            log.debug(f"Injector: Directory cleanup took {clean_duration:.2f}s")
+            
+            extract_start = time.time()
+            mod_folder = self._extract_zip_to_mod(zp)
+            extract_duration = time.time() - extract_start
+            log.debug(f"Injector: ZIP extraction took {extract_duration:.2f}s")
         
-        # Create and run overlay
-        result = self._mk_run_overlay([mod_folder.name], timeout, stop_callback)
-        
-        # Get mkoverlay duration from stored timing data
-        mkoverlay_duration = self.last_injection_timing.get('mkoverlay_duration', 0.0) if self.last_injection_timing else 0.0
-        
-        total_duration = time.time() - injection_start_time
-        runoverlay_duration = total_duration - clean_duration - extract_duration - mkoverlay_duration
-        
-        # Log timing breakdown
-        if result == 0:
-            log.info(f"Injector: Completed in {total_duration:.2f}s (mkoverlay: {mkoverlay_duration:.2f}s, runoverlay: {runoverlay_duration:.2f}s)")
-        else:
-            log.warning(f"Injector: Failed - timeout or error after {total_duration:.2f}s (mkoverlay: {mkoverlay_duration:.2f}s)")
-        
-        return result == 0
+            # Create and run overlay
+            result = self._mk_run_overlay([mod_folder.name], timeout, stop_callback)
+            
+            # Get mkoverlay duration from stored timing data
+            mkoverlay_duration = self.last_injection_timing.get('mkoverlay_duration', 0.0) if self.last_injection_timing else 0.0
+            
+            total_duration = time.time() - injection_start_time
+            runoverlay_duration = total_duration - clean_duration - extract_duration - mkoverlay_duration
+            
+            # Log timing breakdown
+            if result == 0:
+                log.info(f"Injector: Completed in {total_duration:.2f}s (mkoverlay: {mkoverlay_duration:.2f}s, runoverlay: {runoverlay_duration:.2f}s)")
+            else:
+                log.warning(f"Injector: Failed - timeout or error after {total_duration:.2f}s (mkoverlay: {mkoverlay_duration:.2f}s)")
+            
+            return result == 0
+            
+        finally:
+            # Stop game monitor
+            game_monitor_active = False
+            
+            # Restore game process priority/state
+            if game_process_suspended:
+                try:
+                    game_process_suspended.resume()
+                    log.info(f"GameMonitor: Resumed game process (PID={game_process_suspended.pid})")
+                except Exception as e:
+                    log.warning(f"GameMonitor: Failed to resume game process: {e}")
+            
+            if game_process_throttled:
+                try:
+                    import psutil
+                    game_process_throttled.nice(psutil.NORMAL_PRIORITY_CLASS)
+                    log.info(f"GameMonitor: Restored game priority to NORMAL (PID={game_process_throttled.pid})")
+                except Exception as e:
+                    log.debug(f"GameMonitor: Failed to restore game priority: {e}")
     
     def inject_skin_for_testing(self, skin_name: str) -> bool:
         """Inject a skin for testing - stops overlay immediately after mkoverlay"""

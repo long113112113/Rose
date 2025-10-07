@@ -126,9 +126,10 @@ SKIN_THRESHOLD_MS_DEFAULT = 500      # Time before loadout ends to write skin (m
 INJECTION_THRESHOLD_SECONDS = 2.0    # Seconds between injection attempts
 BASE_SKIN_VERIFICATION_WAIT_S = 0.15 # Seconds to wait for LCU to process base skin change
 
-# Game delay strategies (if natural CPU contention is insufficient)
-ENABLE_GAME_SUSPENSION = True        # Set to True to suspend game process during late injection (RISKY)
-ENABLE_PRIORITY_BOOST = True         # Set to True to boost injection priority for more CPU contention (SAFER)
+# Game delay strategies
+ENABLE_PRIORITY_BOOST = True         # Boost injection process priority to HIGH
+ENABLE_GAME_THROTTLE = False         # Lower game process priority to IDLE (aggressive slowdown)
+ENABLE_GAME_SUSPENSION = False       # Suspend game process during injection (NUCLEAR - may trigger anti-cheat)
 
 
 # =============================================================================
