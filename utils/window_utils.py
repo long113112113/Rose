@@ -100,7 +100,8 @@ if is_windows():
                             'title': _win_text(hwnd),
                             'window_rect': window_rect,
                             'client_rect': (l, t, r, b),
-                            'client_size': (w, h)
+                            'client_size': (w, h),
+                            'hwnd': hwnd  # Store hwnd for focus checking
                         })
                 except Exception:
                     # Fallback to window rect if client rect fails
@@ -114,7 +115,8 @@ if is_windows():
                                 'title': _win_text(hwnd),
                                 'window_rect': R,
                                 'client_rect': (l, t, r, b),
-                                'client_size': (w, h)
+                                'client_size': (w, h),
+                                'hwnd': hwnd  # Store hwnd for focus checking
                             })
             return True
         
@@ -133,10 +135,45 @@ if is_windows():
             return rects[0]
         return None
 
+
+    def is_league_window_active() -> bool:
+        """
+        Check if League of Legends window is currently active (focused)
+        
+        Returns:
+            True if League window is active, False otherwise
+        """
+        try:
+            from ctypes import windll
+            # Get the currently active window
+            active_hwnd = windll.user32.GetForegroundWindow()
+            if not active_hwnd:
+                return False
+            
+            # Get the window title of the active window
+            length = windll.user32.GetWindowTextLengthW(active_hwnd)
+            if length == 0:
+                return False
+                
+            buffer = ctypes.create_unicode_buffer(length + 1)
+            windll.user32.GetWindowTextW(active_hwnd, buffer, length + 1)
+            active_title = buffer.value.lower()
+            
+            # Check if it's the League of Legends window
+            return active_title == "league of legends"
+            
+        except Exception:
+            # If we can't determine focus, assume it's not focused for safety
+            return False
+
 else:
     def find_league_window_rect(hint: str = "League") -> Optional[Tuple[int, int, int, int]]:
         """Find League of Legends window rectangle (non-Windows)"""
         return None
+
+    def is_league_window_active() -> bool:
+        """Check if League of Legends window is active (non-Windows - always False)"""
+        return False
 
 
 def get_league_window_client_size(hint: str = "League") -> Optional[Tuple[int, int]]:

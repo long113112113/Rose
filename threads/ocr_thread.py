@@ -19,7 +19,7 @@ from state.shared_state import SharedState
 from lcu.client import LCU
 from utils.normalization import normalize_text, levenshtein_score
 from utils.logging import get_logger
-from utils.window_utils import find_league_window_rect, get_league_window_client_size
+from utils.window_utils import find_league_window_rect, get_league_window_client_size, is_league_window_active
 from constants import *
 
 log = get_logger()
@@ -167,6 +167,18 @@ class OCRSkinThread(threading.Thread):
             # Reset debug flag when champion is locked
             if hasattr(self, '_debug_no_lock'):
                 delattr(self, '_debug_no_lock')
+        
+        # NEW: Check if League window is active/focused
+        if not is_league_window_active():
+            # Log once when OCR stops due to window not being focused
+            if not hasattr(self, '_ocr_stopped_focus_logged'):
+                log.debug("[ocr] OCR stopped - League window not focused (Alt+Tab detected)")
+                self._ocr_stopped_focus_logged = True
+            return False
+        else:
+            # Reset the flag when window is focused again
+            if hasattr(self, '_ocr_stopped_focus_logged'):
+                delattr(self, '_ocr_stopped_focus_logged')
         
         # Stop OCR if injection has been completed
         if getattr(self.state, 'injection_completed', False):
