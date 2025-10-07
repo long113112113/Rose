@@ -172,11 +172,72 @@ class LoadoutTicker(threading.Thread):
                         self.state.last_hover_written = True
                         log.info(f"[loadout #{self.ticker_id}] wrote {path}: {name}")
                         
-                        # Launch injection directly - skip for base skins
-                        if self.state.last_hovered_skin_id == 0:
+                        # Smart injection logic: only inject if user doesn't own the hovered skin
+                        ocr_skin_id = self.state.last_hovered_skin_id
+                        lcu_skin_id = self.state.selected_skin_id
+                        owned_skin_ids = self.state.owned_skin_ids
+                        
+                        # Skip injection for base skins
+                        if ocr_skin_id == 0:
                             log.info(f"[inject] skipping base skin injection (skinId=0)")
+                        # Skip injection if user owns the OCR-detected skin (using LCU inventory)
+                        elif ocr_skin_id in owned_skin_ids:
+                            log.info(f"[inject] skipping injection - user owns this skin (skinId={ocr_skin_id}, verified via LCU inventory)")
+                        # Inject if user doesn't own the hovered skin
                         elif self.injection_manager:
                             try:
+                                # Force base skin selection via LCU before injecting
+                                champ_id = self.state.locked_champ_id or self.state.hovered_champ_id
+                                if champ_id and lcu_skin_id is not None and lcu_skin_id != (champ_id * 1000):
+                                    base_skin_id = champ_id * 1000
+                                    log.info(f"[inject] User has non-base skin selected (LCU skinId={lcu_skin_id})")
+                                    log.info(f"[inject] Forcing base skin selection (skinId={base_skin_id}) for injection...")
+                                    
+                                    # Find the user's action ID to update
+                                    try:
+                                        sess = self.lcu.session() or {}
+                                        actions = sess.get("actions") or []
+                                        my_cell = self.state.local_cell_id
+                                        
+                                        action_found = False
+                                        for rnd in actions:
+                                            for act in rnd:
+                                                if act.get("actorCellId") == my_cell and act.get("type") == "pick":
+                                                    action_id = act.get("id")
+                                                    action_found = True
+                                                    log.info(f"[inject] Found pick action (id={action_id}), setting skin to base...")
+                                                    
+                                                    if action_id is not None:
+                                                        if self.lcu.set_selected_skin(action_id, base_skin_id):
+                                                            log.info(f"[inject] LCU API call successful, waiting for skin to update...")
+                                                            # Wait longer for LCU to process the change
+                                                            time.sleep(0.5)
+                                                            
+                                                            # Verify the change was applied
+                                                            verify_sess = self.lcu.session() or {}
+                                                            verify_team = verify_sess.get("myTeam") or []
+                                                            for player in verify_team:
+                                                                if player.get("cellId") == my_cell:
+                                                                    current_skin = player.get("selectedSkinId")
+                                                                    if current_skin == base_skin_id:
+                                                                        log.info(f"[inject] ✓ Verified: base skin selection successful (skinId={current_skin})")
+                                                                    else:
+                                                                        log.warning(f"[inject] ✗ Warning: skin still shows as {current_skin}, expected {base_skin_id}")
+                                                                    break
+                                                        else:
+                                                            log.warning(f"[inject] ✗ LCU API call failed to set base skin")
+                                                    else:
+                                                        log.warning(f"[inject] ✗ No action ID found")
+                                                    break
+                                            if action_found:
+                                                break
+                                        
+                                        if not action_found:
+                                            log.warning(f"[inject] ✗ Could not find user's pick action to modify")
+                                            
+                                    except Exception as e:
+                                        log.error(f"[inject] ✗ Error forcing base skin: {e}")
+                                
                                 log.info(f"[inject] starting injection for: {name}")
                                 
                                 # Track if we've been in InProgress phase

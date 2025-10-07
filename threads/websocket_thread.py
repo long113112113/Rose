@@ -111,6 +111,8 @@ class WSEventThread(threading.Thread):
                     self.state.last_hovered_skin_key = None
                     self.state.last_hovered_skin_id = None
                     self.state.last_hovered_skin_slug = None
+                    self.state.selected_skin_id = None  # Reset LCU selected skin
+                    self.state.owned_skin_ids.clear()  # Clear owned skins (will be refreshed on champion lock)
                     self.state.last_hover_written = False
                     self.state.injection_completed = False  # Reset injection flag for new game
                     try: 
@@ -177,6 +179,16 @@ class WSEventThread(threading.Thread):
             sess = payload.get("data") or {}
             self.state.local_cell_id = sess.get("localPlayerCellId", self.state.local_cell_id)
             
+            # Track selected skin ID from myTeam (owned skin selected in LCU)
+            if self.state.local_cell_id is not None:
+                my_team = sess.get("myTeam") or []
+                for player in my_team:
+                    if player.get("cellId") == self.state.local_cell_id:
+                        selected_skin = player.get("selectedSkinId")
+                        if selected_skin is not None:
+                            self.state.selected_skin_id = int(selected_skin)
+                        break
+            
             # Visible players (distinct cellIds)
             seen = set()
             for side in (sess.get("myTeam") or [], sess.get("theirTeam") or []):
@@ -211,6 +223,17 @@ class WSEventThread(threading.Thread):
                 if self.state.local_cell_id is not None and cid == int(self.state.local_cell_id):
                     log.info(f"[lock:champ] {champ_label} (id={ch})")
                     self.state.locked_champ_id = int(ch)
+                    
+                    # Fetch owned skins from LCU inventory for accurate ownership checking
+                    try:
+                        owned_skins = self.lcu.owned_skins()
+                        if owned_skins and isinstance(owned_skins, list):
+                            self.state.owned_skin_ids = set(owned_skins)
+                            log.info(f"[lock:champ] Loaded {len(self.state.owned_skin_ids)} owned skins from LCU inventory")
+                        else:
+                            log.warning(f"[lock:champ] Failed to fetch owned skins from LCU")
+                    except Exception as e:
+                        log.warning(f"[lock:champ] Error fetching owned skins: {e}")
                     
                     # Trigger pre-building when a new champion is locked
                     if self.injection_manager:

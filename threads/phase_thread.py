@@ -46,6 +46,8 @@ class PhaseThread(threading.Thread):
                     self.state.last_hovered_skin_key = None
                     self.state.last_hovered_skin_id = None
                     self.state.last_hovered_skin_slug = None
+                    self.state.selected_skin_id = None  # Reset LCU selected skin
+                    self.state.owned_skin_ids.clear()  # Clear owned skins (will be refreshed on champion lock)
                     try: 
                         self.state.processed_action_ids.clear()
                     except Exception: 

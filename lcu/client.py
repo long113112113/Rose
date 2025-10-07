@@ -189,9 +189,27 @@ class LCU:
         """Get unlocked skins"""
         return self.get("/lol-champions/v1/owned-champions-minimal")
 
-    def owned_skins(self) -> Optional[dict]:
-        """Get owned skins"""
-        return self.get("/lol-skins/v1/owned-skins")
+    def owned_skins(self) -> Optional[list]:
+        """Get owned skins (returns list of skin IDs)"""
+        # This endpoint returns all skins the player owns
+        data = self.get("/lol-inventory/v2/inventory/CHAMPION_SKIN")
+        if isinstance(data, list):
+            # Extract skin IDs from the inventory items
+            skin_ids = []
+            for item in data:
+                if isinstance(item, dict):
+                    item_id = item.get("itemId")
+                    if item_id is not None:
+                        try:
+                            skin_ids.append(int(item_id))
+                        except (ValueError, TypeError):
+                            pass
+            return skin_ids
+        return None
+    
+    def get_current_summoner(self) -> Optional[dict]:
+        """Get current summoner info"""
+        return self.get("/lol-summoner/v1/current-summoner")
 
     def get_region_locale(self) -> Optional[dict]:
         """Get client region and locale information"""
@@ -203,3 +221,22 @@ class LCU:
         if locale_info and isinstance(locale_info, dict):
             return locale_info.get("locale")
         return None
+    
+    def set_selected_skin(self, action_id: int, skin_id: int) -> bool:
+        """Set the selected skin for a champion select action"""
+        try:
+            response = requests.patch(
+                f"https://127.0.0.1:{self.port}/lol-champ-select/v1/session/actions/{action_id}",
+                auth=("riot", self.pw),
+                verify=False,
+                json={"selectedSkinId": skin_id},
+                timeout=2.0
+            )
+            if response.status_code in (200, 204):
+                return True
+            else:
+                log.warning(f"LCU set_selected_skin failed: status={response.status_code}, response={response.text[:200]}")
+                return False
+        except Exception as e:
+            log.warning(f"LCU set_selected_skin exception: {e}")
+            return False

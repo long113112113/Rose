@@ -18,6 +18,8 @@ class SharedState:
     last_hovered_skin_key: Optional[str] = None
     last_hovered_skin_id: Optional[int] = None
     last_hovered_skin_slug: Optional[str] = None
+    selected_skin_id: Optional[int] = None  # Skin ID selected in LCU (owned skin)
+    owned_skin_ids: set = field(default_factory=set)  # All owned skin IDs from LCU inventory
     processed_action_ids: set = field(default_factory=set)
     stop: bool = False
     players_visible: int = 0
@@ -29,6 +31,7 @@ class SharedState:
     loadout_countdown_active: bool = False
     loadout_t0: float = 0.0
     loadout_left0_ms: int = 0
+    last_remain_ms: int = 0  # Remaining time in milliseconds
     last_hover_written: bool = False
     timer_lock: threading.Lock = field(default_factory=threading.Lock)
     ticker_seq: int = 0
