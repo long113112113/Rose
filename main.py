@@ -313,16 +313,7 @@ def main():
     
     # Load owned skins if LCU is already connected
     state = SharedState()
-    if lcu.ok:
-        try:
-            owned_skins = lcu.owned_skins()
-            if owned_skins and isinstance(owned_skins, list):
-                state.owned_skin_ids = set(owned_skins)
-                log.info(f"[LCU] Loaded {len(state.owned_skin_ids)} owned skins from inventory")
-            else:
-                log.debug("[LCU] Owned skins not available yet (will be loaded when WebSocket connects)")
-        except Exception as e:
-            log.debug(f"[LCU] Could not load owned skins at startup: {e}")
+    # Owned skins will be loaded when WebSocket connects (no need to load at startup)
     
     # Initialize OCR language (will be updated when LCU connects)
     ocr_lang = args.lang
