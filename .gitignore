@@ -1,3 +1,9 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
 *.pyc
 .venv311/*
 injection/overlay/*
@@ -10,5 +16,67 @@ ocr_debug/*
 
 # Installer artifacts
 build/
+develop-eggs/
 dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+*.csv
+MANIFEST
+
+# Nuitka (Python to C Compiler)
+*.build/
+*.dist/
+*.onefile-build/
+main.exe
+main.bin
+nuitka-crash-report.xml
+
+# Virtual Environment
+venv/
+env/
+ENV/
+.venv
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Application specific
+injection/mods/
+injection/overlay/
+injection/incoming_zips/
+state/*.json
+state/*.lock
+*.log
+logs/
+
+# Installer
 installer/
+Output/
+
+# Testing
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Temporary files
+*.tmp
+*.bak
+*.backup
