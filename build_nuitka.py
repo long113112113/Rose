@@ -66,14 +66,13 @@ def build_with_nuitka():
     
     cmd = [
         "python", "-m", "nuitka",
-        "--standalone",  # Create standalone distribution
-        "--onefile",  # Single executable file
+        "--standalone",  # Create standalone distribution (folder with all files)
         "--windows-console-mode=disable",  # No console window (updated syntax)
         "--enable-plugin=tk-inter",  # Tkinter support (for PIL)
         "--enable-plugin=anti-bloat",  # Reduce size
-        f"--windows-icon-from-ico=icon.ico",  # Application icon
+        # f"--windows-icon-from-ico=icon.ico",  # Application icon (disabled - antivirus blocks it)
         "--include-data-dir=dependencies=dependencies",  # Include dependencies
-        "--include-data-dir=injection/tools=injection/tools",  # Include tools
+        "--include-data-dir=injection/tools=injection/tools",  # Include CSLOL tools
         "--include-data-file=injection/mods_map.json=injection/mods_map.json",
         "--include-data-file=icon.ico=icon.ico",
         "--include-data-file=requirements.txt=requirements.txt",
@@ -96,7 +95,8 @@ def build_with_nuitka():
     print(f"Running: {' '.join(cmd)}\n")
     print("Note: First build may take 5-15 minutes (compiles all C files)")
     print("Subsequent builds: 1-3 minutes (ccache only recompiles changed files!)")
-    print("Nuitka compiles Python to C code for maximum protection!\n")
+    print("Nuitka compiles Python to C code for maximum protection!")
+    print("Building STANDALONE mode: All files in one folder (includes injection/tools)\n")
     
     try:
         result = subprocess.run(cmd, check=True)
@@ -113,54 +113,49 @@ def organize_output():
     """Organize output files"""
     print_step(3, 3, "Organizing Output")
     
-    # Nuitka creates main.exe (onefile mode)
-    exe_file = Path("main.exe")
-    dist_folder = Path("main.dist")  # May exist but not needed for onefile
-    onefile_build = Path("main.onefile-build")
+    import time
+    
+    # Nuitka creates main.dist folder in standalone mode
+    dist_folder = Path("main.dist")
+    build_dir = Path("main.build")
     
     output_dir = Path("dist/SkinCloner")
-    output_dir.mkdir(parents=True, exist_ok=True)
     
-    # Check if onefile exe was created (this is what we configured)
-    if exe_file.exists():
-        # Single file mode - copy the exe
-        target = output_dir / "SkinCloner.exe"
+    # Wait a moment for Nuitka to finish writing files
+    time.sleep(1)
+    
+    # Check if standalone distribution was created
+    print(f"[INFO] Checking for standalone distribution...")
+    if dist_folder.exists() and (dist_folder / "main.exe").exists():
+        print("[OK] Found standalone distribution in main.dist/")
         
-        # Use copy instead of move to avoid file locking issues
+        # Remove old output directory if it exists
+        if output_dir.exists():
+            try:
+                shutil.rmtree(output_dir)
+                print(f"[OK] Cleaned old output directory")
+            except Exception as e:
+                print(f"[WARNING] Could not clean old output: {e}")
+        
+        # Copy entire distribution folder
         try:
-            shutil.copy2(str(exe_file), str(target))
-            print(f"[OK] Copied executable to {target}")
+            shutil.copytree(dist_folder, output_dir)
+            print(f"[OK] Copied distribution to {output_dir}/")
             
-            # Verify copy succeeded before deleting
-            if target.exists():
-                try:
-                    exe_file.unlink()
-                    print(f"[OK] Cleaned up {exe_file}")
-                except Exception as e:
-                    print(f"[WARNING] Could not delete {exe_file}: {e}")
-            
+            # Rename main.exe to SkinCloner.exe
+            old_exe = output_dir / "main.exe"
+            new_exe = output_dir / "SkinCloner.exe"
+            if old_exe.exists():
+                old_exe.rename(new_exe)
+                print(f"[OK] Renamed main.exe to SkinCloner.exe")
+                
         except Exception as e:
-            print(f"[ERROR] Failed to copy executable: {e}")
+            print(f"[ERROR] Failed to copy distribution: {e}")
             return False
         
-    elif dist_folder.exists() and (dist_folder / "main.exe").exists():
-        # Distribution folder mode (shouldn't happen with --onefile, but handle it)
-        print("[INFO] Found dist folder mode output")
-        
-        # Copy files from dist folder instead of moving
-        src_exe = dist_folder / "main.exe"
-        target = output_dir / "SkinCloner.exe"
-        
-        try:
-            shutil.copy2(str(src_exe), str(target))
-            print(f"[OK] Copied executable from dist folder to {target}")
-        except Exception as e:
-            print(f"[ERROR] Failed to copy from dist folder: {e}")
-            return False
     else:
         print("[ERROR] Build output not found!")
-        print(f"  Expected: {exe_file.absolute()}")
-        print(f"  Or: {dist_folder.absolute()}/main.exe")
+        print(f"  Expected: {dist_folder.absolute()}/main.exe")
         return False
     
     # Create launcher
@@ -181,8 +176,7 @@ if errorlevel 1 (
     except Exception as e:
         print(f"[WARNING] Could not create launcher: {e}")
     
-    # Clean up build artifacts (but keep main.dist if it exists for debugging)
-    build_dir = Path("main.build")
+    # Clean up build artifacts
     if build_dir.exists():
         try:
             shutil.rmtree(build_dir)
@@ -190,21 +184,13 @@ if errorlevel 1 (
         except Exception as e:
             print(f"[WARNING] Could not clean build artifacts: {e}")
     
-    # Clean up onefile build directory
-    if onefile_build.exists():
-        try:
-            shutil.rmtree(onefile_build)
-            print("[OK] Cleaned onefile build artifacts")
-        except Exception as e:
-            print(f"[WARNING] Could not clean onefile artifacts: {e}")
-    
-    # Clean up main.dist if it exists (not needed for onefile)
+    # Clean up main.dist (already copied to dist/SkinCloner)
     if dist_folder.exists():
         try:
             shutil.rmtree(dist_folder)
-            print("[OK] Cleaned dist folder (not needed for onefile)")
+            print("[OK] Cleaned main.dist folder (already copied)")
         except Exception as e:
-            print(f"[WARNING] Could not clean dist folder: {e}")
+            print(f"[WARNING] Could not clean main.dist folder: {e}")
     
     return True
 
@@ -249,16 +235,28 @@ def main():
     print_header("[OK] BUILD COMPLETED SUCCESSFULLY!")
     
     exe_path = Path("dist/SkinCloner/SkinCloner.exe")
+    tools_path = Path("dist/SkinCloner/injection/tools")
+    
     if exe_path.exists():
         size_mb = exe_path.stat().st_size / (1024 * 1024)
         print(f"Executable: {exe_path}")
         print(f"Size: {size_mb:.1f} MB")
+        
+        # Check if CSLOL tools are included
+        if tools_path.exists():
+            tool_files = list(tools_path.glob("*.exe")) + list(tools_path.glob("*.dll"))
+            print(f"CSLOL Tools: {len(tool_files)} files included in injection/tools/")
+        
         print(f"\nYour application is now compiled to native machine code!")
         print(f"\nProtection level:")
         print(f"  [OK] Python code compiled to C")
         print(f"  [OK] Native machine code (no Python interpreter needed)")
         print(f"  [OK] Very difficult to reverse engineer")
         print(f"  [OK] Better performance than interpreted Python")
+        print(f"\nMode: STANDALONE (folder with all dependencies)")
+        print(f"  - All DLLs and dependencies included")
+        print(f"  - CSLOL tools included in injection/tools/")
+        print(f"  - Can be run from any location")
         print(f"\nTo test:")
         print(f"  cd dist\\SkinCloner")
         print(f"  start.bat")
