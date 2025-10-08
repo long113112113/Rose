@@ -15,7 +15,7 @@ from utils.logging import get_logger
 from utils.normalization import normalize_text
 from constants import (
     TIMER_HZ_MIN, TIMER_HZ_MAX, TIMER_POLL_PERIOD_S,
-    SKIN_THRESHOLD_MS_DEFAULT, HOVER_BUFFER_FILE,
+    SKIN_THRESHOLD_MS_DEFAULT,
     BASE_SKIN_VERIFICATION_WAIT_S
 )
 
@@ -134,19 +134,10 @@ class LoadoutTicker(threading.Thread):
                 except Exception:
                     final_label = raw or ""
 
-                name = final_label if final_label else None
-                if not name:
-                    try:
-                        with open(HOVER_BUFFER_FILE, "r", encoding="utf-8") as f:
-                            s = f.read().strip()
-                            if s:
-                                name = s
-                    except Exception:
-                        pass
-                
                 # For injection, we need the English name from the database
                 # Use the English skin name that was already processed by OCR thread
                 injection_name = getattr(self.state, 'last_hovered_skin_key', None)
+                name = final_label if final_label else None
                 if injection_name:
                     name = injection_name
                 else:
@@ -167,20 +158,11 @@ class LoadoutTicker(threading.Thread):
                             pass
                 
                 if name:
+                    # Mark that we've processed the last hovered skin for injection
+                    self.state.last_hover_written = True
+                    log.info(f"[loadout #{self.ticker_id}] skin for injection: {name}")
+                    
                     try:
-                        # Use user data directory for state files to avoid permission issues
-                        from utils.paths import get_state_dir
-                        state_file = get_state_dir() / "last_hovered_skin.txt"
-                        path = getattr(self.state, 'skin_file', str(state_file))
-                        # Only create directory if path has a directory component
-                        dir_path = os.path.dirname(path)
-                        if dir_path:  # Only create directory if it's not empty
-                            os.makedirs(dir_path, exist_ok=True)
-                        with open(path, "w", encoding="utf-8") as f:
-                            f.write(str(name).strip())
-                        self.state.last_hover_written = True
-                        log.info(f"[loadout #{self.ticker_id}] wrote {path}: {name}")
-                        
                         # Smart injection logic: only inject if user doesn't own the hovered skin
                         ocr_skin_id = self.state.last_hovered_skin_id
                         lcu_skin_id = self.state.selected_skin_id
@@ -306,7 +288,7 @@ class LoadoutTicker(threading.Thread):
                         else:
                             log.warning(f"[inject] no injection manager available")
                     except Exception as e:
-                        log.warning(f"[loadout #{self.ticker_id}] write failed: {e}")
+                        log.warning(f"[loadout #{self.ticker_id}] injection setup failed: {e}")
 
             if remain_ms <= 0:
                 break

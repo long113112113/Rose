@@ -125,7 +125,6 @@ def build_executable():
                         # State files are now stored in user data directory
                         cmd.append(f"--exclude-module={dir_name}.overlay")
                         cmd.append(f"--exclude-module={dir_name}.mods")
-                        cmd.append(f"--exclude-module={dir_name}.last_hovered_skin")
                 else:
                     cmd.append(f"--add-data={dir_name};{dir_name}")
                 print(f"Including directory: {dir_name}")

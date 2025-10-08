@@ -10,7 +10,7 @@ a = Analysis(
     hookspath=[],
     hooksconfig={},
     runtime_hooks=[],
-    excludes=['injection.overlay', 'injection.mods', 'injection.incoming_zips', 'state.overlay', 'state.mods', 'state.last_hovered_skin'],
+    excludes=['injection.overlay', 'injection.mods', 'injection.incoming_zips', 'state.overlay', 'state.mods'],
     noarchive=False,
     optimize=0,
 )

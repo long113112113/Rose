@@ -40,14 +40,7 @@ class SharedState:
     # OCR last raw text (exact string to write)
     ocr_last_text: Optional[str] = None
     
-    # Skin write config - use user data directory
+    # Skin write config
     skin_write_ms: int = 2000
     injection_completed: bool = False  # Flag to prevent OCR restart after injection
-    skin_file: str = ""  # Will be set to user data directory path
     inject_batch: Optional[str] = None
-    
-    def __post_init__(self):
-        """Initialize paths after dataclass creation"""
-        if not self.skin_file:
-            from utils.paths import get_state_dir
-            self.skin_file = str(get_state_dir() / "last_hovered_skin.txt")

@@ -247,10 +247,6 @@ def main():
     ap.add_argument("--timer-hz", type=int, default=TIMER_HZ_DEFAULT, help="Loadout countdown display frequency (Hz)")
     ap.add_argument("--fallback-loadout-ms", type=int, default=FALLBACK_LOADOUT_MS_DEFAULT, help="(deprecated) Old fallback ms if LCU doesn't provide timer — ignored")
     ap.add_argument("--skin-threshold-ms", type=int, default=SKIN_THRESHOLD_MS_DEFAULT, help="Write last skin at T<=threshold (ms)")
-    # Use user data directory for skin file to avoid permission issues
-    from utils.paths import get_state_dir
-    default_skin_file = str(get_state_dir() / DEFAULT_SKIN_FILE_NAME)
-    ap.add_argument("--skin-file", type=str, default=default_skin_file, help="Path to last_hovered_skin.txt file")
     ap.add_argument("--inject-batch", type=str, default="", help="Batch to execute right after skin write (leave empty to disable)")
     
     # Multi-language arguments
@@ -401,7 +397,6 @@ def main():
     
     # Configure skin writing
     state.skin_write_ms = int(getattr(args, 'skin_threshold_ms', 2000) or 2000)
-    state.skin_file = getattr(args, 'skin_file', state.skin_file) or state.skin_file
     state.inject_batch = getattr(args, 'inject_batch', state.inject_batch) or state.inject_batch
     
     # Update tray manager quit callback now that state is available

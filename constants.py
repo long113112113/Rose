@@ -242,12 +242,6 @@ WINDOWS_MB_ICONERROR = 0x10              # Error icon for message box
 # Lock file name
 LOCK_FILE_NAME = "skincloner.lock"
 
-# Default state file name
-DEFAULT_SKIN_FILE_NAME = "last_hovered_skin.txt"
-
-# Hover buffer file
-HOVER_BUFFER_FILE = "hover_buffer.txt"
-
 # Log file pattern
 LOG_FILE_PATTERN = "skincloner_*.log"
 LOG_TIMESTAMP_FORMAT = "%d-%m-%Y_%H-%M-%S"  # European format, Windows-compatible

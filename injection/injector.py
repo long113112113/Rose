@@ -196,7 +196,7 @@ class SkinInjector:
         log.info(f"Injector: Extracted {zp.name} -> {target}")
         return target
     
-    def _mk_run_overlay(self, mod_names: List[str], timeout: int = 60, stop_callback=None, game_process_suspended=None, game_manually_resumed=None) -> int:
+    def _mk_run_overlay(self, mod_names: List[str], timeout: int = 60, stop_callback=None, injection_manager=None) -> int:
         """Create and run overlay"""
         tools = self._detect_tools()
         exe = tools.get("modtools")
@@ -254,33 +254,13 @@ class SkinInjector:
                 }
                 
                 # DON'T resume game yet - keep it frozen until runoverlay starts
-                log.info(f"GameMonitor: mkoverlay done - keeping game frozen until runoverlay starts")
+                log.info(f"Injector: mkoverlay done - keeping game frozen until runoverlay starts")
                 
         except subprocess.TimeoutExpired:
-            log.error("Injector: mkoverlay timeout")
-            # Resume game on timeout
-            if game_process_suspended and game_process_suspended[0]:
-                try:
-                    game_process_suspended[0].resume()
-                    log.warning(f"GameMonitor: Resumed game after mkoverlay timeout (safety)")
-                    if game_manually_resumed is not None:
-                        game_manually_resumed[0] = True
-                except:
-                    if game_manually_resumed is not None:
-                        game_manually_resumed[0] = True
+            log.error("Injector: mkoverlay timeout - monitor will auto-resume if needed")
             return 124
         except Exception as e:
-            log.error(f"Injector: mkoverlay error: {e}")
-            # Resume game on error
-            if game_process_suspended and game_process_suspended[0]:
-                try:
-                    game_process_suspended[0].resume()
-                    log.warning(f"GameMonitor: Resumed game after mkoverlay error (safety)")
-                    if game_manually_resumed is not None:
-                        game_manually_resumed[0] = True
-                except:
-                    if game_manually_resumed is not None:
-                        game_manually_resumed[0] = True
+            log.error(f"Injector: mkoverlay error: {e} - monitor will auto-resume if needed")
             return 1
 
         # Run overlay
@@ -315,58 +295,9 @@ class SkinInjector:
             self.current_overlay_process = proc
             
             # Resume game NOW - runoverlay started, game can load while runoverlay hooks in
-            if game_process_suspended and game_process_suspended[0]:
-                try:
-                    import psutil
-                    game_proc = game_process_suspended[0]
-                    
-                    # Check current status before resume
-                    try:
-                        status_before = game_proc.status()
-                        log.debug(f"GameMonitor: Process status before resume: {status_before}")
-                    except:
-                        pass
-                    
-                    # Resume until process is no longer suspended
-                    # (process may be suspended multiple times if both monitors ran)
-                    for attempt in range(1, GAME_RESUME_MAX_ATTEMPTS + 1):
-                        try:
-                            game_proc.resume()
-                            time.sleep(GAME_RESUME_VERIFICATION_WAIT_S)
-                            
-                            status = game_proc.status()
-                            if status != psutil.STATUS_STOPPED:
-                                # Successfully resumed!
-                                if attempt == 1:
-                                    log.info(f"GameMonitor: ✓ Resumed game after runoverlay started (PID={game_proc.pid}, status={status})")
-                                else:
-                                    log.info(f"GameMonitor: ✓ Resumed game after {attempt} attempts (PID={game_proc.pid}, status={status})")
-                                    log.info(f"GameMonitor: (Process was suspended {attempt} times - likely double suspension)")
-                                log.info(f"GameMonitor: Game unfrozen - loading while runoverlay hooks in")
-                                break
-                            else:
-                                # Still suspended, try again
-                                if attempt < GAME_RESUME_MAX_ATTEMPTS:
-                                    log.debug(f"GameMonitor: Process still suspended after attempt {attempt}, trying again...")
-                                else:
-                                    log.error(f"GameMonitor: ✗ Failed to resume after {GAME_RESUME_MAX_ATTEMPTS} attempts - game will be frozen!")
-                                    
-                        except psutil.NoSuchProcess:
-                            log.warning("GameMonitor: Process disappeared during resume")
-                            break
-                        except Exception as e:
-                            log.warning(f"GameMonitor: Resume attempt {attempt} error: {e}")
-                            if attempt >= GAME_RESUME_MAX_ATTEMPTS:
-                                break
-                    
-                    # Signal to GameMonitor that we already resumed
-                    if game_manually_resumed is not None:
-                        game_manually_resumed[0] = True
-                        
-                except Exception as e:
-                    log.error(f"GameMonitor: Failed to resume game: {e}")
-                    if game_manually_resumed is not None:
-                        game_manually_resumed[0] = True  # Signal even on error
+            if injection_manager:
+                log.info("Injector: runoverlay started - resuming game")
+                injection_manager.resume_game()
             
             # Monitor process with stop callback
             start_time = time.time()
@@ -463,167 +394,21 @@ class SkinInjector:
             log.error(f"Injector: Failed to create mkoverlay command: {e}")
             return -1
     
-    def inject_skin(self, skin_name: str, timeout: int = 60, stop_callback=None, pre_suspended_process=None) -> bool:
+    def inject_skin(self, skin_name: str, timeout: int = 60, stop_callback=None, injection_manager=None) -> bool:
         """Inject a single skin
         
         Args:
             skin_name: Name of skin to inject
             timeout: Timeout for injection process
             stop_callback: Callback to check if injection should stop
-            pre_suspended_process: Already suspended game process (from persistent monitor)
+            injection_manager: InjectionManager instance to call resume_game()
         """
         injection_start_time = time.time()
-        game_process_suspended = [pre_suspended_process]  # Use pre-suspended process if available
-        game_monitor_active = [False]  # Use list so it's mutable across threads
-        game_manually_resumed = [False]  # Flag to tell monitor we already resumed
         
-        # Check if we have a pre-suspended process from persistent monitor
-        if pre_suspended_process is not None:
-            log.info(f"GameMonitor: Using pre-suspended process (PID={pre_suspended_process.pid})")
-            log.info("GameMonitor: Game already frozen by persistent monitor - skipping GameMonitor thread")
+        # Game suspension is now handled entirely by the monitor in InjectionManager
+        # No need for a separate GameMonitor thread
         
-        # Start game process monitor thread IMMEDIATELY (before slow operations)
-        # This ensures we catch the game process as early as possible
-        # Skip if we already have a pre-suspended process (to avoid double suspension)
-        if ENABLE_GAME_SUSPENSION and pre_suspended_process is None:
-            import threading
-            import psutil
-            game_monitor_active[0] = True
-            
-            def monitor_and_throttle_game():
-                """Monitor for game process and throttle it when it starts"""
-                try:
-                    log.info("GameMonitor: Started - waiting for League of Legends.exe...")
-                    
-                    # DEBUG: List all League-related processes currently running
-                    league_procs = []
-                    for p in psutil.process_iter(['name', 'pid']):
-                        if 'league' in p.info['name'].lower():
-                            league_procs.append(f"{p.info['name']} (PID={p.info['pid']})")
-                    if league_procs:
-                        log.info(f"GameMonitor: Current League processes: {', '.join(league_procs)}")
-                    else:
-                        log.info("GameMonitor: No League processes running yet")
-                    
-                    max_wait = 20.0  # Wait up to 20 seconds for game to start
-                    start_wait = time.time()
-                    check_count = 0
-                    
-                    while time.time() - start_wait < max_wait and game_monitor_active[0]:
-                        check_count += 1
-                        found_game = False
-                        
-                        # Log every 2 seconds to show we're checking
-                        if check_count % 40 == 0:  # Every 2 seconds (40 * 50ms)
-                            elapsed = time.time() - start_wait
-                            log.info(f"GameMonitor: Still waiting for game process... ({elapsed:.1f}s elapsed)")
-                        
-                        for proc in psutil.process_iter(['name', 'pid']):
-                            if proc.info['name'] == 'League of Legends.exe':
-                                try:
-                                    game_proc = psutil.Process(proc.info['pid'])
-                                    found_game = True
-                                    
-                                    log.info(f"GameMonitor: ✓ FOUND League of Legends.exe (PID={proc.info['pid']})")
-                                    
-                                    # Check process status before attempting to modify it
-                                    proc_status = game_proc.status()
-                                    log.info(f"GameMonitor: Process status: {proc_status}")
-                                    
-                                    # Suspend the game process
-                                    try:
-                                        game_proc.suspend()
-                                        game_process_suspended[0] = game_proc
-                                        log.info(f"GameMonitor: ✓ SUSPENDED game process (PID={proc.info['pid']})")
-                                        log.info(f"GameMonitor: Game frozen - will auto-resume after 20s if mkoverlay not done")
-                                        
-                                        # Monitor suspension - auto-resume after 20s for safety
-                                        suspension_start = time.time()
-                                        max_suspension_time = 20.0
-                                        game_was_resumed_early = False
-                                        
-                                        # Wait a bit for suspension to take effect before checking status
-                                        time.sleep(0.2)
-                                        
-                                        while time.time() - suspension_start < max_suspension_time:
-                                            # Check if mkoverlay already resumed the game
-                                            if game_manually_resumed[0]:
-                                                log.info(f"GameMonitor: Detected mkoverlay resumed game ({time.time() - suspension_start:.1f}s after suspension)")
-                                                return  # Already resumed, exit
-                                            
-                                            # Also check process status
-                                            try:
-                                                status = game_proc.status()
-                                                if status != psutil.STATUS_STOPPED:
-                                                    # Game was resumed (mkoverlay completed)
-                                                    game_was_resumed_early = True
-                                                    log.info(f"GameMonitor: Game resumed by mkoverlay ({time.time() - suspension_start:.1f}s after suspension)")
-                                                    return  # Game resumed, exit monitor
-                                            except psutil.NoSuchProcess:
-                                                log.debug(f"GameMonitor: Game process ended")
-                                                return  # Process ended, exit
-                                            except Exception as e:
-                                                log.debug(f"GameMonitor: Status check error: {e}")
-                                            
-                                            time.sleep(0.5)  # Check every 500ms
-                                        
-                                        # 20s timeout - auto-resume for safety
-                                        if not game_was_resumed_early:
-                                            try:
-                                                status = game_proc.status()
-                                                if status == psutil.STATUS_STOPPED:
-                                                    game_proc.resume()
-                                                    log.warning(f"GameMonitor: ⚠ AUTO-RESUME after 20s (safety timeout)")
-                                                    log.warning(f"GameMonitor: mkoverlay took too long - game released to prevent freeze")
-                                                else:
-                                                    log.info(f"GameMonitor: Game already running (status: {status})")
-                                            except Exception as e:
-                                                log.debug(f"GameMonitor: Auto-resume error: {e}")
-                                        
-                                        return
-                                        
-                                    except psutil.AccessDenied as e:
-                                        log.error(f"GameMonitor: ✗ ACCESS DENIED - Cannot suspend (need admin rights?)")
-                                        log.error(f"GameMonitor: Try running SkinCloner as Administrator")
-                                        return
-                                    except Exception as e:
-                                        log.error(f"GameMonitor: ✗ Failed to suspend: {type(e).__name__}: {e}")
-                                        return
-                                    
-                                except psutil.NoSuchProcess:
-                                    log.debug(f"GameMonitor: Process {proc.info['pid']} disappeared before we could access it")
-                                    continue  # Keep looking
-                                except Exception as proc_error:
-                                    log.error(f"GameMonitor: ✗ Unexpected error: {type(proc_error).__name__}: {proc_error}")
-                                    log.error(f"GameMonitor: Process PID={proc.info['pid']}, Name={proc.info['name']}")
-                                    return  # Exit on error
-                        
-                        time.sleep(0.05)  # Check every 50ms
-                    
-                    if time.time() - start_wait >= max_wait:
-                        log.warning(f"GameMonitor: ✗ Game process NOT FOUND after {max_wait}s - no throttling applied")
-                        
-                        # DEBUG: Show what processes ARE running
-                        league_procs = []
-                        for p in psutil.process_iter(['name', 'pid']):
-                            if 'league' in p.info['name'].lower():
-                                league_procs.append(f"{p.info['name']} (PID={p.info['pid']})")
-                        if league_procs:
-                            log.warning(f"GameMonitor: League processes found: {', '.join(league_procs)}")
-                        else:
-                            log.warning("GameMonitor: No League processes found at all!")
-                    elif not game_monitor_active[0]:
-                        log.info("GameMonitor: Stopped before finding game process")
-                        
-                except Exception as e:
-                    log.error(f"GameMonitor: Error: {e}")
-            
-            # Start monitor thread
-            monitor_thread = threading.Thread(target=monitor_and_throttle_game, daemon=True)
-            monitor_thread.start()
-            log.info(f"GameMonitor: Background monitor started (SUSPENSION mode)")
-        
-        # Find the skin ZIP (do this AFTER starting monitor to minimize delay)
+        # Find the skin ZIP
         zp = self._resolve_zip(skin_name)
         if not zp:
             log.error(f"Injector: Skin '{skin_name}' not found in {self.zips_dir}")
@@ -632,55 +417,38 @@ class SkinInjector:
                 log.info("Injector: Available skins (first 10):")
                 for a in avail[:10]:
                     log.info(f"  - {a.name}")
-            # Stop monitor before returning
-            game_monitor_active[0] = False
             return False
         
         log.debug(f"Injector: Using skin file: {zp}")
         
-        try:
-            # Clean mods and overlay directories, then extract new skin
-            clean_start = time.time()
-            self._clean_mods_dir()
-            self._clean_overlay_dir()
-            clean_duration = time.time() - clean_start
-            log.debug(f"Injector: Directory cleanup took {clean_duration:.2f}s")
-            
-            extract_start = time.time()
-            mod_folder = self._extract_zip_to_mod(zp)
-            extract_duration = time.time() - extract_start
-            log.debug(f"Injector: ZIP extraction took {extract_duration:.2f}s")
-            
-            # Create and run overlay (pass suspended game process and resume flag)
-            result = self._mk_run_overlay([mod_folder.name], timeout, stop_callback, game_process_suspended, game_manually_resumed)
-            
-            # Get mkoverlay duration from stored timing data
-            mkoverlay_duration = self.last_injection_timing.get('mkoverlay_duration', 0.0) if self.last_injection_timing else 0.0
-            
-            total_duration = time.time() - injection_start_time
-            runoverlay_duration = total_duration - clean_duration - extract_duration - mkoverlay_duration
-            
-            # Log timing breakdown
-            if result == 0:
-                log.info(f"Injector: Completed in {total_duration:.2f}s (mkoverlay: {mkoverlay_duration:.2f}s, runoverlay: {runoverlay_duration:.2f}s)")
-            else:
-                log.warning(f"Injector: Failed - timeout or error after {total_duration:.2f}s (mkoverlay: {mkoverlay_duration:.2f}s)")
-            
-            return result == 0
-            
-        finally:
-            # Stop game monitor
-            game_monitor_active[0] = False
-            
-            # Safety check: ensure game is not stuck suspended
-            if game_process_suspended and game_process_suspended[0]:
-                try:
-                    import psutil
-                    if game_process_suspended[0].status() == psutil.STATUS_STOPPED:
-                        game_process_suspended[0].resume()
-                        log.warning(f"GameMonitor: Emergency resume in finally block!")
-                except:
-                    pass  # Game might have exited already
+        # Clean mods and overlay directories, then extract new skin
+        clean_start = time.time()
+        self._clean_mods_dir()
+        self._clean_overlay_dir()
+        clean_duration = time.time() - clean_start
+        log.debug(f"Injector: Directory cleanup took {clean_duration:.2f}s")
+        
+        extract_start = time.time()
+        mod_folder = self._extract_zip_to_mod(zp)
+        extract_duration = time.time() - extract_start
+        log.debug(f"Injector: ZIP extraction took {extract_duration:.2f}s")
+        
+        # Create and run overlay
+        result = self._mk_run_overlay([mod_folder.name], timeout, stop_callback, injection_manager)
+        
+        # Get mkoverlay duration from stored timing data
+        mkoverlay_duration = self.last_injection_timing.get('mkoverlay_duration', 0.0) if self.last_injection_timing else 0.0
+        
+        total_duration = time.time() - injection_start_time
+        runoverlay_duration = total_duration - clean_duration - extract_duration - mkoverlay_duration
+        
+        # Log timing breakdown
+        if result == 0:
+            log.info(f"Injector: Completed in {total_duration:.2f}s (mkoverlay: {mkoverlay_duration:.2f}s, runoverlay: {runoverlay_duration:.2f}s)")
+        else:
+            log.warning(f"Injector: Failed - timeout or error after {total_duration:.2f}s (mkoverlay: {mkoverlay_duration:.2f}s)")
+        
+        return result == 0
     
     def inject_skin_for_testing(self, skin_name: str) -> bool:
         """Inject a skin for testing - stops overlay immediately after mkoverlay"""
