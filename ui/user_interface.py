@@ -252,6 +252,26 @@ class UserInterface:
             if self.state.random_mode_active and not self._randomization_in_progress:
                 self._cancel_randomization()
             
+            # Always reset randomization flags if skin changed (user manually changed skin)
+            # This ensures dice button can be clicked again even if previous randomization was in progress
+            if self._randomization_started:
+                log.debug("[UI] Resetting randomization flag due to skin change")
+                self._randomization_started = False
+                # Also reset in-progress flag if it was set (e.g., during base skin forcing)
+                if self._randomization_in_progress:
+                    log.debug("[UI] Cancelling randomization in progress due to skin change")
+                    self._randomization_in_progress = False
+                    # Cancel the state but don't call full _cancel_randomization to avoid double broadcast
+                    if self.state.random_mode_active:
+                        self.state.random_skin_name = None
+                        self.state.random_skin_id = None
+                        self.state.random_mode_active = False
+                        try:
+                            if self.state and hasattr(self.state, 'ui_skin_thread') and self.state.ui_skin_thread:
+                                self.state.ui_skin_thread._broadcast_random_mode_state()
+                        except Exception as e:
+                            log.debug(f"[UI] Failed to broadcast random mode state on skin change: {e}")
+            
             # Broadcast dice button state to JavaScript (dice button is now handled by JS)
             self._update_dice_button()
             
@@ -759,9 +779,8 @@ class UserInterface:
             # Try to set base skin
             if lcu.set_my_selection_skin(base_skin_id):
                 log.info(f"[UI] Forced champion base skin: {base_skin_id}")
-                # Add a delay to let UI detection process the base skin change
-                from PyQt6.QtCore import QTimer
-                QTimer.singleShot(1000, self._start_randomization)
+                # Start randomization immediately
+                self._start_randomization()
             else:
                 log.warning("[UI] Failed to force champion base skin")
                 self._randomization_in_progress = False
@@ -773,6 +792,12 @@ class UserInterface:
     
     def _start_randomization(self):
         """Start the randomization sequence"""
+        # Check if randomization was cancelled (e.g., user changed skin during base skin forcing)
+        if not self._randomization_started:
+            log.debug("[UI] Randomization was cancelled, aborting start")
+            self._randomization_in_progress = False
+            return
+        
         # Disable HistoricMode if active
         try:
             if getattr(self.state, 'historic_mode_active', False):
