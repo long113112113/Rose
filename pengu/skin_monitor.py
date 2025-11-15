@@ -649,6 +649,39 @@ class PenguSkinMonitorThread(threading.Thread):
         else:
             asyncio.run_coroutine_threadsafe(self._broadcast(message), self._loop)
 
+    def _broadcast_historic_state(self) -> None:
+        """Broadcast current historic mode state to JavaScript"""
+        if not self._loop or not self._connections:
+            return
+
+        # Get historic mode state from SharedState
+        historic_mode_active = getattr(self.shared_state, 'historic_mode_active', False)
+        historic_skin_id = getattr(self.shared_state, 'historic_skin_id', None)
+
+        payload = {
+            "type": "historic-state",
+            "active": historic_mode_active,
+            "historicSkinId": historic_skin_id,
+            "timestamp": int(time.time() * 1000),
+        }
+        
+        log.debug(
+            "[PenguSkinMonitor] Broadcasting historic state → active=%s historicSkinId=%s",
+            historic_mode_active,
+            historic_skin_id,
+        )
+        
+        message = json.dumps(payload)
+        try:
+            running_loop = asyncio.get_running_loop()
+        except RuntimeError:
+            running_loop = None
+
+        if running_loop is self._loop:
+            self._loop.create_task(self._broadcast(message))
+        else:
+            asyncio.run_coroutine_threadsafe(self._broadcast(message), self._loop)
+
     def _start_http_server(self) -> None:
         """Start HTTP server for serving local preview images and assets"""
         class LocalFileHandler(SimpleHTTPRequestHandler):

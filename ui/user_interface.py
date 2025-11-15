@@ -532,6 +532,13 @@ class UserInterface:
                             QTimer.singleShot(50, self.historic_flag.ensure_position)
                         except Exception:
                             pass
+                        
+                        # Broadcast state to JavaScript
+                        try:
+                            if self.state and hasattr(self.state, 'ui_skin_thread') and self.state.ui_skin_thread:
+                                self.state.ui_skin_thread._broadcast_historic_state()
+                        except Exception as e:
+                            log.debug(f"[UI] Failed to broadcast historic state: {e}")
 
                     elif self.random_flag._current_resolution is None:
                         self.random_flag._current_resolution = current_resolution
@@ -660,6 +667,12 @@ class UserInterface:
                     if self.historic_flag:
                         log.info("[HISTORIC] Processing pending hide HistoricFlag in main thread")
                         self.historic_flag.hide_flag()
+                    # Broadcast state to JavaScript (hide)
+                    try:
+                        if self.state and hasattr(self.state, 'ui_skin_thread') and self.state.ui_skin_thread:
+                            self.state.ui_skin_thread._broadcast_historic_state()
+                    except Exception as e:
+                        log.debug(f"[UI] Failed to broadcast historic state: {e}")
                 except Exception as e:
                     log.error(f"[UI] Error hiding HistoricFlag in pending ops: {e}")
             if self._pending_show_historic_flag:
@@ -676,6 +689,12 @@ class UserInterface:
                         QTimer.singleShot(50, self.historic_flag.ensure_position)
                     except Exception:
                         pass
+                    # Broadcast state to JavaScript (show)
+                    try:
+                        if self.state and hasattr(self.state, 'ui_skin_thread') and self.state.ui_skin_thread:
+                            self.state.ui_skin_thread._broadcast_historic_state()
+                    except Exception as e:
+                        log.debug(f"[UI] Failed to broadcast historic state: {e}")
                 except Exception as e:
                     log.error(f"[UI] Error showing HistoricFlag in pending ops: {e}")
     
@@ -1132,6 +1151,12 @@ class UserInterface:
                 try:
                     self.historic_flag.hide_flag()
                     log.debug("[UI] HistoricFlag hidden instantly")
+                    # Broadcast state to JavaScript (hide)
+                    try:
+                        if self.state and hasattr(self.state, 'ui_skin_thread') and self.state.ui_skin_thread:
+                            self.state.ui_skin_thread._broadcast_historic_state()
+                    except Exception as e:
+                        log.debug(f"[UI] Failed to broadcast historic state: {e}")
                 except Exception as e:
                     log.error(f"[UI] Error hiding HistoricFlag: {e}")
             
@@ -1208,6 +1233,12 @@ class UserInterface:
                 try:
                     self.historic_flag.show_flag_instantly()
                     log.debug("[UI] HistoricFlag shown instantly (was previously visible)")
+                    # Broadcast state to JavaScript (show)
+                    try:
+                        if self.state and hasattr(self.state, 'ui_skin_thread') and self.state.ui_skin_thread:
+                            self.state.ui_skin_thread._broadcast_historic_state()
+                    except Exception as e:
+                        log.debug(f"[UI] Failed to broadcast historic state: {e}")
                 except Exception as e:
                     log.error(f"[UI] Error showing HistoricFlag: {e}")
             else:
