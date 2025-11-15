@@ -10,3 +10,6 @@
 [submodule "Pengu Loader/plugins/LU-HistoricMode"]
 	path = Pengu Loader/plugins/LU-HistoricMode
 	url = https://github.com/Alban1911/LU-HistoricMode
+[submodule "Pengu Loader/plugins/LU-RandomSkin"]
+	path = Pengu Loader/plugins/LU-RandomSkin
+	url = https://github.com/Alban1911/LU-RandomSkin.git

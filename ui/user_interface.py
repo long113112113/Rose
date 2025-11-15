@@ -33,7 +33,6 @@ class UserInterface:
         self.chroma_ui = None
         self.unowned_frame = None
         self.dice_button = None
-        self.random_flag = None
         self.click_catcher_hide = None
         self.click_blocker = None  # Legacy placeholder (removed)
         
@@ -50,8 +49,7 @@ class UserInterface:
         self._ui_visibility_state = {
             'chroma_ui_visible': False,
             'unowned_frame_visible': False,
-            'dice_button_visible': False,
-            'random_flag_visible': False
+            'dice_button_visible': False
         }
         
         # Randomization state
@@ -126,12 +124,7 @@ class UserInterface:
             else:
                 log.info("[UI] Skipping DiceButton creation in Swiftplay mode")
 
-            log.info("[UI] Creating RandomFlag components...")
-            from ui.random_flag import RandomFlag
-            self.random_flag = RandomFlag(state=self.state)
-            log.info("[UI] RandomFlag created successfully")
-
-            # Legacy UI components removed (UnownedFrame, ClickBlocker, ClickCatchers)
+            # Legacy UI components removed (UnownedFrame, ClickBlocker, ClickCatchers, RandomFlag)
             self.unowned_frame = None
             self.click_blocker = None
             self.click_catchers.clear()
@@ -310,8 +303,6 @@ class UserInterface:
             self._hide_unowned_frame()
             if self.dice_button:
                 self.dice_button.hide_button()
-            if self.random_flag:
-                self.random_flag.hide_flag()
             # Hide all click catcher instances
             for catcher in self.click_catchers.values():
                 catcher.hide_catcher()
@@ -511,49 +502,6 @@ class UserInterface:
                     elif self.dice_button._current_resolution is None:
                         self.dice_button._current_resolution = current_resolution
 
-            # RandomFlag: destroy and recreate on resolution change
-            if self.random_flag:
-                from utils.window_utils import get_league_window_client_size
-                current_resolution = get_league_window_client_size()
-                if current_resolution and hasattr(self.random_flag, '_current_resolution'):
-                    if (self.random_flag._current_resolution is not None and 
-                        current_resolution != self.random_flag._current_resolution):
-                        log.info(f"[UI] RandomFlag resolution changed from {self.random_flag._current_resolution} to {current_resolution}, destroying and recreating")
-                        was_visible = getattr(self.random_flag, 'is_visible', False)
-
-                        # Destroy
-                        try:
-                            self.random_flag.hide()
-                            self.random_flag.deleteLater()
-                        except Exception:
-                            pass
-                        self.random_flag = None
-
-                        # Process events
-                        from PyQt6.QtWidgets import QApplication
-                        QApplication.processEvents()
-
-                        # Recreate
-                        from ui.random_flag import RandomFlag
-                        self.random_flag = RandomFlag(state=self.state)
-
-                        # Restore visibility
-                        if was_visible:
-                            self.random_flag.show_flag()
-                        else:
-                            self.random_flag.hide_flag()
-
-                        # Re-apply absolute positioning shortly after show
-                        try:
-                            from PyQt6.QtCore import QTimer
-                            QTimer.singleShot(50, self.random_flag.ensure_position)
-                        except Exception:
-                            pass
-
-
-                    elif self.random_flag._current_resolution is None:
-                        self.random_flag._current_resolution = current_resolution
-            
             # Legacy click catchers removed; ensure dictionaries stay empty
             if self.click_catchers:
                 log.debug("[UI] Clearing legacy click catcher state")
@@ -572,12 +520,10 @@ class UserInterface:
         if self.state and self.state.is_swiftplay_mode:
             return (
                 self.chroma_ui is not None
-                and self.random_flag is not None
             )
         return (
             self.chroma_ui is not None
             and self.dice_button is not None
-            and self.random_flag is not None
         )
     
     def request_ui_initialization(self):
@@ -708,7 +654,6 @@ class UserInterface:
             chroma_ui_to_cleanup = None
             unowned_frame_to_cleanup = None
             dice_button_to_cleanup = None
-            random_flag_to_cleanup = None
             click_catchers_to_cleanup = {}
             
             if lock_acquired:
@@ -717,12 +662,10 @@ class UserInterface:
                     chroma_ui_to_cleanup = self.chroma_ui
                     unowned_frame_to_cleanup = self.unowned_frame
                     dice_button_to_cleanup = self.dice_button
-                    random_flag_to_cleanup = self.random_flag
                     click_catchers_to_cleanup = self.click_catchers.copy()
                     self.chroma_ui = None
                     self.unowned_frame = None
                     self.dice_button = None
-                    self.random_flag = None
                     self.click_catchers = {}
                     self.click_catcher_hide = None
                     
@@ -745,14 +688,12 @@ class UserInterface:
                     chroma_ui_to_cleanup = self.chroma_ui
                     unowned_frame_to_cleanup = self.unowned_frame
                     dice_button_to_cleanup = self.dice_button
-                    random_flag_to_cleanup = self.random_flag
                     click_catchers_to_cleanup = self.click_catchers.copy()
                     
                     # CRITICAL: Set components to None even without lock
                     self.chroma_ui = None
                     self.unowned_frame = None
                     self.dice_button = None
-                    self.random_flag = None
                     self.click_catchers = {}
                     self.click_catcher_hide = None
                     
@@ -764,7 +705,6 @@ class UserInterface:
                         self.chroma_ui = None
                         self.unowned_frame = None
                         self.dice_button = None
-                        self.random_flag = None
                         log.debug("[UI] Cleared instance variables despite error")
                     except Exception as e2:
                         log.error(f"[UI] Could not clear instance variables: {e2}")
@@ -795,16 +735,6 @@ class UserInterface:
                     log.error(f"[UI] Error cleaning up DiceButton: {e}")
                     import traceback
                     log.error(f"[UI] DiceButton cleanup traceback: {traceback.format_exc()}")
-            
-            if random_flag_to_cleanup:
-                log.debug("[UI] Cleaning up RandomFlag...")
-                try:
-                    random_flag_to_cleanup.cleanup()
-                    log.debug("[UI] RandomFlag cleaned up successfully")
-                except Exception as e:
-                    log.error(f"[UI] Error cleaning up RandomFlag: {e}")
-                    import traceback
-                    log.error(f"[UI] RandomFlag cleanup traceback: {traceback.format_exc()}")
             
             if click_catchers_to_cleanup:
                 log.debug("[UI] Cleaning up ClickCatcherHide instances...")
@@ -948,10 +878,6 @@ class UserInterface:
         except Exception:
             pass
         
-        # Fade in random flag
-        if self.random_flag:
-            self.random_flag.show_flag()
-        
         # Switch dice to enabled state
         if self.dice_button:
             self.dice_button.set_state('enabled')
@@ -964,6 +890,13 @@ class UserInterface:
             self.state.random_skin_id = random_skin_id
             self.state.random_mode_active = True
             log.info(f"[UI] Random skin selected: {random_skin_name} (ID: {random_skin_id})")
+            
+            # Broadcast random mode state to JavaScript
+            try:
+                if self.state and hasattr(self.state, 'ui_skin_thread') and self.state.ui_skin_thread:
+                    self.state.ui_skin_thread._broadcast_random_mode_state()
+            except Exception as e:
+                log.debug(f"[UI] Failed to broadcast random mode state: {e}")
         else:
             log.warning("[UI] No random skin available")
             self._cancel_randomization()
@@ -974,14 +907,17 @@ class UserInterface:
     
     def _cancel_randomization(self):
         """Cancel randomization and reset state"""
-        # Fade out random flag
-        if self.random_flag:
-            self.random_flag.hide_flag()
-        
         # Reset state
         self.state.random_skin_name = None
         self.state.random_skin_id = None
         self.state.random_mode_active = False
+        
+        # Broadcast random mode state to JavaScript
+        try:
+            if self.state and hasattr(self.state, 'ui_skin_thread') and self.state.ui_skin_thread:
+                self.state.ui_skin_thread._broadcast_random_mode_state()
+        except Exception as e:
+            log.debug(f"[UI] Failed to broadcast random mode state on cancel: {e}")
         
         # Clear randomization flags
         self._randomization_in_progress = False
@@ -1044,15 +980,13 @@ class UserInterface:
             self._ui_visibility_state['chroma_ui_visible'] = chroma_ui_visible
             self._ui_visibility_state['unowned_frame_visible'] = self.unowned_frame and self.unowned_frame.isVisible()
             self._ui_visibility_state['dice_button_visible'] = self.dice_button and hasattr(self.dice_button, 'is_visible') and self.dice_button.is_visible
-            self._ui_visibility_state['random_flag_visible'] = self.random_flag and self.random_flag.isVisible()
             
             log.debug(f"[UI] Visibility state before hiding: {self._ui_visibility_state}")
             
             # Check if any UI is actually visible - if not, skip hiding (prevents premature hiding)
             has_visible_ui = (chroma_ui_visible or 
                              (self.unowned_frame and self.unowned_frame.isVisible()) or
-                             (self.dice_button and hasattr(self.dice_button, 'is_visible') and self.dice_button.is_visible) or
-                             (self.random_flag and self.random_flag.isVisible()))
+                             (self.dice_button and hasattr(self.dice_button, 'is_visible') and self.dice_button.is_visible))
             
             if not has_visible_ui:
                 log.debug("[UI] No UI elements visible - skipping hide action")
@@ -1086,14 +1020,7 @@ class UserInterface:
                 except Exception as e:
                     log.error(f"[UI] Error hiding DiceButton: {e}")
             
-            # Hide RandomFlag instantly
-            if self.random_flag:
-                try:
-                    self.random_flag.hide_flag()
-                    log.debug("[UI] RandomFlag hidden instantly")
-                except Exception as e:
-                    log.error(f"[UI] Error hiding RandomFlag: {e}")
-            # Hide all click catchers instantly
+# Hide all click catchers instantly
             for catcher_name, catcher in self.click_catchers.items():
                 try:
                     catcher.hide_catcher()
@@ -1151,16 +1078,6 @@ class UserInterface:
             else:
                 log.debug("[UI] DiceButton not shown (was not previously visible)")
             
-            # Show RandomFlag only if it was previously visible
-            if self._ui_visibility_state['random_flag_visible'] and self.random_flag:
-                try:
-                    self.random_flag.show_flag_instantly()
-                    log.debug("[UI] RandomFlag shown instantly (was previously visible)")
-                except Exception as e:
-                    log.error(f"[UI] Error showing RandomFlag: {e}")
-            else:
-                log.debug("[UI] RandomFlag not shown (was not previously visible)")
-
             # Show all click catchers (skip in Swiftplay mode)
             if not self.state.is_swiftplay_mode:
                 for catcher_name, catcher in self.click_catchers.items():
@@ -1307,6 +1224,13 @@ class UserInterface:
         if self.current_skin_id:
             log.debug(f"[UI] Showing dice button for skin ID: {self.current_skin_id}")
             self.dice_button.show_button()
+            
+            # Broadcast random mode state to JavaScript (initial state)
+            try:
+                if self.state and hasattr(self.state, 'ui_skin_thread') and self.state.ui_skin_thread:
+                    self.state.ui_skin_thread._broadcast_random_mode_state()
+            except Exception as e:
+                log.debug(f"[UI] Failed to broadcast random mode state on dice button update: {e}")
         else:
             log.debug("[UI] Hiding dice button - no current skin")
             self.dice_button.hide_button()
@@ -1320,8 +1244,6 @@ class UserInterface:
                 self.unowned_frame.cleanup()
             if self.dice_button:
                 self.dice_button.cleanup()
-            if self.random_flag:
-                self.random_flag.cleanup()
             if self.click_blocker:
                 try:
                     self.click_blocker.cleanup()

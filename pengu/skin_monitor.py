@@ -336,6 +336,28 @@ class PenguSkinMonitorThread(threading.Thread):
                         self._broadcast_chroma_state()
             return
 
+        if payload_type == "dice-button-click":
+            # Handle dice button click from JavaScript plugin
+            button_state = payload.get("state", "disabled")
+            log.info(f"[PenguSkinMonitor] Dice button clicked from JavaScript: state={button_state}")
+            
+            # Forward to UI's dice button handler
+            try:
+                from ui.user_interface import get_user_interface
+                ui = get_user_interface(self.shared_state, self.skin_scraper)
+                
+                if button_state == "disabled":
+                    # Start randomization
+                    ui._handle_dice_click_disabled()
+                elif button_state == "enabled":
+                    # Cancel randomization
+                    ui._handle_dice_click_enabled()
+                else:
+                    log.warning(f"[PenguSkinMonitor] Unknown dice button state: {button_state}")
+            except Exception as e:
+                log.error(f"[PenguSkinMonitor] Failed to handle dice button click: {e}")
+            return
+
         skin_name = payload.get("skin")
         if not isinstance(skin_name, str) or not skin_name.strip():
             return
@@ -696,6 +718,44 @@ class PenguSkinMonitorThread(threading.Thread):
         log.debug(
             "[PenguSkinMonitor] Broadcasting phase change → phase=%s",
             phase,
+        )
+        
+        message = json.dumps(payload)
+        try:
+            running_loop = asyncio.get_running_loop()
+        except RuntimeError:
+            running_loop = None
+
+        if running_loop is self._loop:
+            self._loop.create_task(self._broadcast(message))
+        else:
+            asyncio.run_coroutine_threadsafe(self._broadcast(message), self._loop)
+    
+    def _broadcast_random_mode_state(self) -> None:
+        """Broadcast random mode state to JavaScript plugins"""
+        if not self._loop or not self._connections:
+            return
+
+        # Get random mode state from SharedState
+        random_mode_active = getattr(self.shared_state, 'random_mode_active', False)
+        random_skin_id = getattr(self.shared_state, 'random_skin_id', None)
+        
+        # Determine dice button state based on random mode
+        dice_state = 'enabled' if random_mode_active else 'disabled'
+
+        payload = {
+            "type": "random-mode-state",
+            "active": random_mode_active,
+            "randomSkinId": random_skin_id,
+            "diceState": dice_state,
+            "timestamp": int(time.time() * 1000),
+        }
+        
+        log.debug(
+            "[PenguSkinMonitor] Broadcasting random mode state → active=%s diceState=%s randomSkinId=%s",
+            random_mode_active,
+            dice_state,
+            random_skin_id,
         )
         
         message = json.dumps(payload)

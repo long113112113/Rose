@@ -103,25 +103,26 @@ class DiceButton(ChromaWidgetBase):
         window_height = window_bottom - window_top
         
         # Hardcoded positions for core resolutions, scale from baseline otherwise
+        # Moved 50px to the left for comparison with JavaScript plugin
         if window_width == 1600 and window_height == 900:
             button_width = 46
             button_height = 27
-            center_x = 800
+            center_x = 750  # 800 - 50
             center_y = 754
         elif window_width == 1280 and window_height == 720:
             button_width = 38
             button_height = 23
-            center_x = 640
+            center_x = 590  # 640 - 50
             center_y = 602
         elif window_width == 1024 and window_height == 576:
             button_width = 28
             button_height = 18
-            center_x = 512
+            center_x = 462  # 512 - 50
             center_y = 483
         else:
             button_width = scale_dimension_from_base(46, (window_width, window_height), axis='x')
             button_height = scale_dimension_from_base(27, (window_width, window_height), axis='y')
-            center_x = scale_position_from_base(800, (window_width, window_height), axis='x')
+            center_x = scale_position_from_base(750, (window_width, window_height), axis='x')  # 800 - 50
             center_y = scale_position_from_base(754, (window_width, window_height), axis='y')
             log.info(
                 f"[DiceButton] Scaled size for unsupported resolution {window_width}x{window_height}: {button_width}x{button_height}"
