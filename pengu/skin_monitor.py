@@ -100,12 +100,12 @@ class PenguSkinMonitorThread(threading.Thread):
                 serve(self._handler, self.host, self.port, ping_interval=None)
             )
             log.info(
-                "[PenguSkinMonitor] Listening for Pengu Loader events on ws://%s:%s",
+                "[SkinMonitor] Listening for Pengu Loader events on ws://%s:%s",
                 self.host,
                 self.port,
             )
             log.info(
-                "[PenguSkinMonitor] HTTP server for local files on http://%s:%s",
+                "[SkinMonitor] HTTP server for local files on http://%s:%s",
                 self.host,
                 self._http_port,
             )
@@ -113,12 +113,12 @@ class PenguSkinMonitorThread(threading.Thread):
             self.ready_event.set()
             self._loop.run_until_complete(self._shutdown_event.wait())
         except Exception as exc:  # noqa: BLE001
-            log.error("[PenguSkinMonitor] Server stopped unexpectedly: %s", exc)
+            log.error("[SkinMonitor] Server stopped unexpectedly: %s", exc)
         finally:
             self._stop_http_server()
             self._loop.run_until_complete(self._shutdown())
             self._loop.close()
-            log.info("[PenguSkinMonitor] Thread terminated")
+            log.info("[SkinMonitor] Thread terminated")
 
     async def _shutdown(self) -> None:
         # Close active sockets
@@ -175,16 +175,16 @@ class PenguSkinMonitorThread(threading.Thread):
     # ------------------------------------------------------------ WebSocket IO
     async def _handler(self, websocket: WebSocketServerProtocol) -> None:
         client = websocket.remote_address
-        log.info("[PenguSkinMonitor] Client connected: %s", client)
+        log.info("[SkinMonitor] Client connected: %s", client)
         self._connections.add(websocket)
         try:
             async for message in websocket:
                 self._handle_message(message)
         except (ConnectionClosedError, ConnectionClosedOK):
-            log.debug("[PenguSkinMonitor] Client disconnected: %s", client)
+            log.debug("[SkinMonitor] Client disconnected: %s", client)
         except Exception as exc:  # noqa: BLE001
             log.warning(
-                "[PenguSkinMonitor] Error handling client %s: %s", client, exc
+                "[SkinMonitor] Error handling client %s: %s", client, exc
             )
         finally:
             self._connections.discard(websocket)
@@ -193,7 +193,7 @@ class PenguSkinMonitorThread(threading.Thread):
         try:
             payload = json.loads(message)
         except json.JSONDecodeError as exc:
-            log.warning("[PenguSkinMonitor] Invalid payload: %s (%s)", message, exc)
+            log.warning("[SkinMonitor] Invalid payload: %s (%s)", message, exc)
             return
 
         payload_type = payload.get("type")
@@ -226,7 +226,7 @@ class PenguSkinMonitorThread(threading.Thread):
                     if preview_path and preview_path.exists():
                         # Serve via HTTP instead of file:// (browsers block file:// URLs)
                         http_url = f"http://{self.host}:{self._http_port}/preview/{champion_id}/{skin_id}/{chroma_id}/{chroma_id}.png"
-                        log.debug(f"[PenguSkinMonitor] Local preview found: {preview_path} -> {http_url}")
+                        log.debug(f"[SkinMonitor] Local preview found: {preview_path} -> {http_url}")
                         
                         # Send the HTTP URL back to JavaScript
                         payload = {
@@ -248,9 +248,9 @@ class PenguSkinMonitorThread(threading.Thread):
                         else:
                             asyncio.run_coroutine_threadsafe(self._broadcast(message), self._loop)
                     else:
-                        log.debug(f"[PenguSkinMonitor] Local preview not found: champion={champion_id}, skin={skin_id}, chroma={chroma_id}")
+                        log.debug(f"[SkinMonitor] Local preview not found: champion={champion_id}, skin={skin_id}, chroma={chroma_id}")
                 except Exception as e:
-                    log.debug(f"[PenguSkinMonitor] Failed to get local preview: {e}")
+                    log.debug(f"[SkinMonitor] Failed to get local preview: {e}")
             return
 
         if payload_type == "request-local-asset":
@@ -266,7 +266,7 @@ class PenguSkinMonitorThread(threading.Thread):
                     if asset_file and asset_file.exists():
                         # Serve via HTTP instead of file:// (browsers block file:// URLs)
                         http_url = f"http://{self.host}:{self._http_port}/asset/{asset_path.replace(chr(92), '/')}"  # Replace backslashes with forward slashes
-                        log.debug(f"[PenguSkinMonitor] Local asset found: {asset_file} -> {http_url}")
+                        log.debug(f"[SkinMonitor] Local asset found: {asset_file} -> {http_url}")
                         
                         # Send the HTTP URL back to JavaScript
                         payload = {
@@ -287,9 +287,9 @@ class PenguSkinMonitorThread(threading.Thread):
                         else:
                             asyncio.run_coroutine_threadsafe(self._broadcast(message), self._loop)
                     else:
-                        log.debug(f"[PenguSkinMonitor] Local asset not found: {asset_path}")
+                        log.debug(f"[SkinMonitor] Local asset not found: {asset_path}")
                 except Exception as e:
-                    log.debug(f"[PenguSkinMonitor] Failed to get local asset: {e}")
+                    log.debug(f"[SkinMonitor] Failed to get local asset: {e}")
             return
 
         if payload_type == "chroma-selection":
@@ -306,7 +306,7 @@ class PenguSkinMonitorThread(threading.Thread):
                 if chroma_selector:
                     # Call ChromaSelector's _on_chroma_selected to use its logic
                     chroma_selector._on_chroma_selected(chroma_id, chroma_name)
-                    log.info(f"[PenguSkinMonitor] Chroma selected via ChromaSelector: {chroma_name} (ID: {chroma_id})")
+                    log.info(f"[SkinMonitor] Chroma selected via ChromaSelector: {chroma_name} (ID: {chroma_id})")
                     
                     # Also call the panel's wrapper to track colors and broadcast state
                     # This ensures the panel's current_chroma_color is updated
@@ -314,7 +314,7 @@ class PenguSkinMonitorThread(threading.Thread):
                         try:
                             chroma_selector.panel._on_chroma_selected_wrapper(chroma_id, chroma_name)
                         except Exception as e:
-                            log.debug(f"[PenguSkinMonitor] Failed to call panel wrapper: {e}")
+                            log.debug(f"[SkinMonitor] Failed to call panel wrapper: {e}")
                             # Fallback: broadcast state anyway
                             self._broadcast_chroma_state()
                     else:
@@ -324,7 +324,7 @@ class PenguSkinMonitorThread(threading.Thread):
                     # Fallback: update shared state directly if ChromaSelector not available
                     self.shared_state.selected_chroma_id = chroma_id if chroma_id != 0 else None
                     self.shared_state.last_hovered_skin_id = chroma_id
-                    log.info(f"[PenguSkinMonitor] Chroma selected (fallback): {chroma_name} (ID: {chroma_id})")
+                    log.info(f"[SkinMonitor] Chroma selected (fallback): {chroma_name} (ID: {chroma_id})")
                     
                     # Try to call panel wrapper directly to track colors
                     try:
@@ -336,7 +336,7 @@ class PenguSkinMonitorThread(threading.Thread):
                             # Panel not available - broadcast state anyway
                             self._broadcast_chroma_state()
                     except Exception as e:
-                        log.debug(f"[PenguSkinMonitor] Failed to call panel wrapper in fallback: {e}")
+                        log.debug(f"[SkinMonitor] Failed to call panel wrapper in fallback: {e}")
                         # Broadcast state anyway
                         self._broadcast_chroma_state()
             return
@@ -344,7 +344,7 @@ class PenguSkinMonitorThread(threading.Thread):
         if payload_type == "dice-button-click":
             # Handle dice button click from JavaScript plugin
             button_state = payload.get("state", "disabled")
-            log.info(f"[PenguSkinMonitor] Dice button clicked from JavaScript: state={button_state}")
+            log.info(f"[SkinMonitor] Dice button clicked from JavaScript: state={button_state}")
             
             # Forward to UI's dice button handler
             try:
@@ -358,9 +358,9 @@ class PenguSkinMonitorThread(threading.Thread):
                     # Cancel randomization
                     ui._handle_dice_click_enabled()
                 else:
-                    log.warning(f"[PenguSkinMonitor] Unknown dice button state: {button_state}")
+                    log.warning(f"[SkinMonitor] Unknown dice button state: {button_state}")
             except Exception as e:
-                log.error(f"[PenguSkinMonitor] Failed to handle dice button click: {e}")
+                log.error(f"[SkinMonitor] Failed to handle dice button click: {e}")
             return
 
         skin_name = payload.get("skin")
@@ -394,7 +394,7 @@ class PenguSkinMonitorThread(threading.Thread):
                 self.shared_state, "own_champion_locked", False
             ):
                 log.debug(
-                    "[PenguSkinMonitor] Resuming after injection disconnect (phase=%s)",
+                    "[SkinMonitor] Resuming after injection disconnect (phase=%s)",
                     current_phase,
                 )
                 self._injection_disconnect_active = False
@@ -417,7 +417,7 @@ class PenguSkinMonitorThread(threading.Thread):
     # ------------------------------------------------------------ Skin logic
     def _process_skin_name(self, skin_name: str) -> None:
         try:
-            log.info("[PenguSkinMonitor] Skin detected: '%s'", skin_name)
+            log.info("[SkinMonitor] Skin detected: '%s'", skin_name)
             self.shared_state.ui_last_text = skin_name
 
             if getattr(self.shared_state, "is_swiftplay_mode", False):
@@ -426,7 +426,7 @@ class PenguSkinMonitorThread(threading.Thread):
                 self._process_regular_skin_name(skin_name)
         except Exception as exc:  # noqa: BLE001
             log.error(
-                "[PenguSkinMonitor] Error processing skin '%s': %s",
+                "[SkinMonitor] Error processing skin '%s': %s",
                 skin_name,
                 exc,
             )
@@ -435,7 +435,7 @@ class PenguSkinMonitorThread(threading.Thread):
         skin_id = self._find_skin_id_by_name(skin_name)
         if skin_id is None:
             log.warning(
-                "[PenguSkinMonitor] Unable to map Swiftplay skin '%s' to ID",
+                "[SkinMonitor] Unable to map Swiftplay skin '%s' to ID",
                 skin_name,
             )
             return
@@ -446,7 +446,7 @@ class PenguSkinMonitorThread(threading.Thread):
         self.shared_state.last_hovered_skin_id = skin_id
 
         log.info(
-            "[PenguSkinMonitor] Swiftplay skin '%s' mapped to champion %s (id=%s)",
+            "[SkinMonitor] Swiftplay skin '%s' mapped to champion %s (id=%s)",
             skin_name,
             champion_id,
             skin_id,
@@ -457,7 +457,7 @@ class PenguSkinMonitorThread(threading.Thread):
         skin_id = self._find_skin_id(skin_name)
         if skin_id is None:
             log.debug(
-                "[PenguSkinMonitor] No skin ID found for '%s' with current data",
+                "[SkinMonitor] No skin ID found for '%s' with current data",
                 skin_name,
             )
             return
@@ -480,7 +480,7 @@ class PenguSkinMonitorThread(threading.Thread):
 
         self.shared_state.last_hovered_skin_key = english_skin_name or skin_name
         log.info(
-            "[PenguSkinMonitor] Skin '%s' mapped to ID %s (key=%s)",
+            "[SkinMonitor] Skin '%s' mapped to ID %s (key=%s)",
             skin_name,
             skin_id,
             self.shared_state.last_hovered_skin_key,
@@ -491,7 +491,7 @@ class PenguSkinMonitorThread(threading.Thread):
     def _load_skin_id_mapping(self) -> bool:
         language = getattr(self.shared_state, "current_language", None)
         if not language:
-            log.warning("[PenguSkinMonitor] No language detected; cannot load mapping")
+            log.warning("[SkinMonitor] No language detected; cannot load mapping")
             return False
 
         mapping_path = (
@@ -503,7 +503,7 @@ class PenguSkinMonitorThread(threading.Thread):
 
         if not mapping_path.exists():
             log.warning(
-                "[PenguSkinMonitor] Skin mapping file missing: %s", mapping_path
+                "[SkinMonitor] Skin mapping file missing: %s", mapping_path
             )
             return False
 
@@ -512,7 +512,7 @@ class PenguSkinMonitorThread(threading.Thread):
                 data = json.load(handle)
         except Exception as exc:  # noqa: BLE001
             log.error(
-                "[PenguSkinMonitor] Failed to load skin mapping %s: %s",
+                "[SkinMonitor] Failed to load skin mapping %s: %s",
                 mapping_path,
                 exc,
             )
@@ -530,7 +530,7 @@ class PenguSkinMonitorThread(threading.Thread):
 
         self.skin_mapping_loaded = True
         log.info(
-            "[PenguSkinMonitor] Loaded %s skin mappings for '%s'",
+            "[SkinMonitor] Loaded %s skin mappings for '%s'",
             len(self.skin_id_mapping),
             language,
         )
@@ -573,7 +573,7 @@ class PenguSkinMonitorThread(threading.Thread):
         if result:
             skin_id, matched_name, similarity = result
             log.info(
-                "[PenguSkinMonitor] Matched '%s' -> '%s' (ID=%s, similarity=%.2f)",
+                "[SkinMonitor] Matched '%s' -> '%s' (ID=%s, similarity=%.2f)",
                 skin_name,
                 matched_name,
                 skin_id,
@@ -602,7 +602,7 @@ class PenguSkinMonitorThread(threading.Thread):
             "hasChromas": has_chromas,
         }
         log.info(
-            "[PenguSkinMonitor] Skin state → name='%s' id=%s champion=%s hasChromas=%s",
+            "[SkinMonitor] Skin state → name='%s' id=%s champion=%s hasChromas=%s",
             skin_name,
             skin_id,
             champion_id,
@@ -660,7 +660,7 @@ class PenguSkinMonitorThread(threading.Thread):
         }
         
         log.debug(
-            "[PenguSkinMonitor] Broadcasting chroma state → selectedChromaId=%s chromaColor=%s",
+            "[SkinMonitor] Broadcasting chroma state → selectedChromaId=%s chromaColor=%s",
             selected_chroma_id,
             chroma_color,
         )
@@ -693,7 +693,7 @@ class PenguSkinMonitorThread(threading.Thread):
         }
         
         log.debug(
-            "[PenguSkinMonitor] Broadcasting historic state → active=%s historicSkinId=%s",
+            "[SkinMonitor] Broadcasting historic state → active=%s historicSkinId=%s",
             historic_mode_active,
             historic_skin_id,
         )
@@ -730,7 +730,7 @@ class PenguSkinMonitorThread(threading.Thread):
         }
         
         log.debug(
-            "[PenguSkinMonitor] Broadcasting phase change → phase=%s, gameMode=%s, mapId=%s, queueId=%s",
+            "[SkinMonitor] Broadcasting phase change → phase=%s, gameMode=%s, mapId=%s, queueId=%s",
             phase,
             game_mode,
             map_id,
@@ -760,7 +760,7 @@ class PenguSkinMonitorThread(threading.Thread):
         }
         
         log.debug(
-            "[PenguSkinMonitor] Broadcasting champion lock state → locked=%s",
+            "[SkinMonitor] Broadcasting champion lock state → locked=%s",
             locked,
         )
         
@@ -796,7 +796,7 @@ class PenguSkinMonitorThread(threading.Thread):
         }
         
         log.debug(
-            "[PenguSkinMonitor] Broadcasting random mode state → active=%s diceState=%s randomSkinId=%s",
+            "[SkinMonitor] Broadcasting random mode state → active=%s diceState=%s randomSkinId=%s",
             random_mode_active,
             dice_state,
             random_skin_id,
@@ -880,7 +880,7 @@ class PenguSkinMonitorThread(threading.Thread):
                     self.send_response(404)
                     self.end_headers()
                 except Exception as e:
-                    log.debug(f"[PenguSkinMonitor] HTTP server error: {e}")
+                    log.debug(f"[SkinMonitor] HTTP server error: {e}")
                     self.send_response(500)
                     self.end_headers()
 
@@ -892,9 +892,9 @@ class PenguSkinMonitorThread(threading.Thread):
             self._http_server = HTTPServer((self.host, self._http_port), LocalFileHandler)
             http_thread = threading.Thread(target=self._http_server.serve_forever, daemon=True)
             http_thread.start()
-            log.info(f"[PenguSkinMonitor] HTTP server started on http://{self.host}:{self._http_port}")
+            log.info(f"[SkinMonitor] HTTP server started on http://{self.host}:{self._http_port}")
         except Exception as e:
-            log.warning(f"[PenguSkinMonitor] Failed to start HTTP server: {e}")
+            log.warning(f"[SkinMonitor] Failed to start HTTP server: {e}")
 
     def _stop_http_server(self) -> None:
         """Stop HTTP server"""
@@ -902,9 +902,9 @@ class PenguSkinMonitorThread(threading.Thread):
             try:
                 self._http_server.shutdown()
                 self._http_server.server_close()
-                log.info("[PenguSkinMonitor] HTTP server stopped")
+                log.info("[SkinMonitor] HTTP server stopped")
             except Exception as e:
-                log.debug(f"[PenguSkinMonitor] Error stopping HTTP server: {e}")
+                log.debug(f"[SkinMonitor] Error stopping HTTP server: {e}")
             finally:
                 self._http_server = None
 
