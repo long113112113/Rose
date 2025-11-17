@@ -193,7 +193,7 @@ class InjectionManager:
                                 break
                             except psutil.AccessDenied:
                                 log.error("[monitor] ACCESS DENIED - Cannot suspend game")
-                                log.error("[monitor] Try running LeagueUnlocked as Administrator")
+                                log.error("[monitor] Try running Rose as Administrator")
                                 self._monitor_active = False
                                 # Clear reference if we couldn't suspend (game is running anyway)
                                 self._suspended_game_process = None

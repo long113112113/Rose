@@ -5,7 +5,7 @@ Helper utilities for interacting with Pengu Loader's command-line interface.
 
 The Pengu Loader CLI is used to force activate/deactivate mods and optionally
 restart the League client when required. This module provides a small wrapper
-around the executable bundled alongside LeagueUnlocked.
+around the executable bundled alongside Rose.
 """
 
 from __future__ import annotations
@@ -165,7 +165,7 @@ def _is_league_running() -> bool:
 
 def activate_on_start() -> bool:
     """
-    Force activate Pengu Loader when LeagueUnlocked launches.
+    Force activate Pengu Loader when Rose launches.
 
     Returns True if the activation command completed successfully.
     """
@@ -187,7 +187,7 @@ def activate_on_start() -> bool:
 
 def deactivate_on_exit() -> bool:
     """
-    Force deactivate Pengu Loader when LeagueUnlocked shuts down.
+    Force deactivate Pengu Loader when Rose shuts down.
 
     Returns True if the deactivation command completed successfully.
     """

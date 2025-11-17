@@ -82,7 +82,7 @@ def _get_encryption_key() -> bytes:
     
     # Priority 3: Default key derived from a fixed password (developer only)
     if password is None:
-        password = b'LeagueUnlocked2024LogEncryptionDefaultKey'
+        password = b'Rose2024LogEncryptionDefaultKey'
     
     # Derive a 32-byte key using PBKDF2
     kdf = PBKDF2HMAC(
@@ -346,7 +346,6 @@ class SanitizingFilter(logging.Filter):
         '   • ID:',
         '   • Locked:',
         
-        # License warning (keep warning itself, hide details)
         '⚠️  This should only',
         
         # Game process monitoring (reveals technique)
@@ -701,12 +700,12 @@ def setup_logging(log_mode: str = 'customer', production_mode: bool = None):
         # In production mode, use RSA-hybrid encrypted logs with .log.enc extension
         max_bytes = int(LOG_MAX_FILE_SIZE_MB_DEFAULT * 1024 * 1024)
         if production_mode:
-            log_file = logs_dir / f"leagueunlocked_{timestamp}.log.enc"
+            log_file = logs_dir / f"rose_{timestamp}.log.enc"
             def _factory_enc(p: Path):
                 return RSAHybridEncryptedFileHandler(p, encoding='utf-8')
             file_handler = SizeRotatingCompositeHandler(log_file, _factory_enc, max_bytes)
         else:
-            log_file = logs_dir / f"leagueunlocked_{timestamp}.log"
+            log_file = logs_dir / f"rose_{timestamp}.log"
             def _factory_plain(p: Path):
                 return logging.FileHandler(p, encoding='utf-8')
             file_handler = SizeRotatingCompositeHandler(log_file, _factory_plain, max_bytes)
@@ -788,11 +787,11 @@ def setup_logging(log_mode: str = 'customer', production_mode: bool = None):
             # Show startup message based on log mode
             if _CURRENT_LOG_MODE == 'customer':
                 # Clean startup for customer mode
-                logger.info(f"✅ LeagueUnlocked Started (Log: {log_file.name})")
+                logger.info(f"✅ Rose Started (Log: {log_file.name})")
             else:
                 # Detailed startup for verbose/debug modes
                 logger.info("=" * LOG_SEPARATOR_WIDTH)
-                logger.info(f"LeagueUnlocked - Starting... (Log file: {log_file.name})")
+                logger.info(f"Rose - Starting... (Log file: {log_file.name})")
                 logger.info("=" * LOG_SEPARATOR_WIDTH)
                 
                 # Log mode information

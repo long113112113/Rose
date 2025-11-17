@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-Decrypt RSA-hybrid encrypted log files from LeagueUnlocked.
+Decrypt RSA-hybrid encrypted log files from Rose.
 
 Format written by the app in production mode:
   1st line: {"v":"rsa1","ek":"<b64_rsa_oaep_encrypted_fernet_key>"}

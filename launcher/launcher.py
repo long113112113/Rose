@@ -1,11 +1,10 @@
 """
-Native Win32 startup dialog used to prepare LeagueUnlocked before launching.
+Native Win32 startup dialog used to prepare Rose before launching.
 
 This replaces the former PyQt-based launcher with a lightweight Steam-style
 progress window that:
     1. Checks for application updates and applies them if needed.
     2. Verifies local skin data and downloads missing content.
-    3. Validates the license and prompts for activation when required.
 
 Once all checks succeed, the dialog closes automatically and the main
 application continues bootstrapping.
@@ -30,7 +29,6 @@ except ImportError:
 from config import APP_VERSION
 from launcher.updater import auto_update
 from state.app_status import AppStatus
-from utils.license_flow import check_license
 from utils.logging import get_logger, get_named_logger
 from utils.paths import get_asset_path
 from utils.skin_downloader import download_skins_on_startup
@@ -68,8 +66,8 @@ class UpdateDialog(Win32Window):
 
     def __init__(self) -> None:
         super().__init__(
-            class_name="LeagueUnlockedUpdateDialog",
-            window_title=f"LeagueUnlocked {APP_VERSION}",
+            class_name="RoseUpdateDialog",
+            window_title=f"Rose {APP_VERSION}",
             width=420,
             height=120,
             style=WS_CAPTION | WS_SYSMENU | WS_MINIMIZEBOX,
@@ -100,7 +98,7 @@ class UpdateDialog(Win32Window):
 
         detail_hwnd = self.create_control(
             "STATIC",
-            "Preparing LeagueUnlocked…",
+            "Preparing Rose…",
             WS_CHILD | WS_VISIBLE,
             0,
             x_pos,
@@ -335,7 +333,7 @@ class UpdateDialog(Win32Window):
     def _render_status_text(self) -> None:
         if not self.detail_hwnd or not self.status_hwnd:
             return
-        header = self._status_text or self._current_status or "Preparing LeagueUnlocked…"
+        header = self._status_text or self._current_status or "Preparing Rose…"
         user32.SetWindowTextW(self.detail_hwnd, header)
         user32.InvalidateRect(self.detail_hwnd, None, True)
         user32.SetWindowTextW(self.status_hwnd, self._transfer_text or "")
@@ -347,7 +345,7 @@ def _show_error(message: str) -> None:
         user32.MessageBoxW(
             None,
             message,
-            "LeagueUnlocked - Launcher",
+            "Rose - Launcher",
             MB_OK | MB_ICONERROR | MB_TOPMOST,
         )
         updater_log.error(f"Error dialog shown to user: {message}")
@@ -481,27 +479,6 @@ def _perform_skin_sync(dialog: UpdateDialog) -> None:
         updater_log.warning("Skin download failed; continuing without new skins.")
 
 
-def _perform_license_check(dialog: UpdateDialog) -> None:
-    updater_log.info("Starting license validation sequence.")
-    dialog.set_detail("Validating license…")
-    dialog.set_status("Checking license status…")
-    dialog.set_marquee(True)
-    dialog.pump_messages()
-
-    def status_callback(message: str) -> None:
-        dialog.set_status(message)
-        dialog.pump_messages()
-        updater_log.info(f"License status: {message}")
-
-    check_license(status_callback=status_callback)
-    dialog.set_marquee(False)
-    dialog.set_progress(100)
-    dialog.set_status("License valid.")
-    dialog.pump_messages()
-    time.sleep(0.3)
-    updater_log.info("License validation completed successfully.")
-
-
 def run_launcher() -> None:
     """Display the Win32 update dialog and perform startup checks."""
     if sys.platform != "win32":
@@ -522,10 +499,9 @@ def run_launcher() -> None:
             try:
                 _perform_update(dialog)
                 _perform_skin_sync(dialog)
-                _perform_license_check(dialog)
 
                 dialog.set_detail("All checks complete.")
-                dialog.set_status("Launching LeagueUnlocked…")
+                dialog.set_status("Launching Rose…")
                 dialog.set_progress(100)
                 dialog.pump_messages()
                 time.sleep(0.4)
@@ -536,7 +512,7 @@ def run_launcher() -> None:
             except Exception as exc:  # noqa: BLE001
                 result["error"] = exc
                 log.error(f"Launcher error: {exc}", exc_info=True)
-                _show_error(f"Failed to prepare LeagueUnlocked:\n\n{exc}")
+                _show_error(f"Failed to prepare Rose:\n\n{exc}")
                 updater_log.exception("Launcher sequence crashed", exc_info=True)
             finally:
                 dialog.allow_close()

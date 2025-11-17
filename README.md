@@ -1,14 +1,14 @@
-# LeagueUnlocked
+# Rose
 
 ```powershell
-# LeagueUnlocked Development Setup
+# Rose Development Setup
 # Copy and paste this entire block into PowerShell to set up dev environment instantly
 
 # Create conda environment with Python 3.11
-conda create -n leagueunlocked python=3.11 -y
+conda create -n rose python=3.11 -y
 
 # Activate the environment
-conda activate leagueunlocked
+conda activate rose
 
 # Clone the repository
 git clone https://github.com/Alban1911/LU-source.git
@@ -26,5 +26,5 @@ git submodule update --init --recursive
 pip install -r requirements.txt
 
 # Ready to develop! Run main.py as administrator when testing
-echo "Development environment ready! Use 'conda activate leagueunlocked' to activate this environment in future sessions."
+echo "Development environment ready! Use 'conda activate rose' to activate this environment in future sessions."
 ```

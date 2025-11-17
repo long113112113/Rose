@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-System tray manager for LeagueUnlocked
+System tray manager for Rose
 """
 
 import threading
@@ -21,7 +21,7 @@ log = get_logger()
 
 
 class TrayManager:
-    """Manages the system tray icon for LeagueUnlocked"""
+    """Manages the system tray icon for Rose"""
     
     def __init__(self, quit_callback: Optional[Callable] = None):
         """
@@ -45,7 +45,7 @@ class TrayManager:
         image = Image.new('RGBA', (width, height), (0, 0, 0, 0))
         draw = ImageDraw.Draw(image)
         
-        # Draw a simple "SC" logo (LeagueUnlocked)
+        # Draw a simple "SC" logo (Rose)
         # Background circle (scaled 2x)
         draw.ellipse(TRAY_ICON_ELLIPSE_COORDS, fill=(0, 100, 200, 255), outline=(0, 50, 100, 255), width=TRAY_ICON_BORDER_WIDTH)
         
@@ -185,7 +185,7 @@ class TrayManager:
 
                 show_message_box_threaded(
                     f"Failed to open settings dialog:\n\n{e}",
-                    "LeagueUnlocked Settings",
+                    "Rose Settings",
                     0x10,  # MB_ICONERROR
                 )
             except Exception:
@@ -194,7 +194,7 @@ class TrayManager:
     def _create_menu(self) -> pystray.Menu:
         """Create the context menu for the tray icon"""
         return pystray.Menu(
-            pystray.MenuItem("LeagueUnlocked", None, enabled=False),
+            pystray.MenuItem("Rose", None, enabled=False),
             pystray.Menu.SEPARATOR,
             pystray.MenuItem("Settings", self._on_settings),
             pystray.Menu.SEPARATOR,
@@ -210,9 +210,9 @@ class TrayManager:
             menu = self._create_menu()
             
             self.icon = pystray.Icon(
-                "LeagueUnlocked",
+                "Rose",
                 icon_image,
-                "LeagueUnlocked",
+                "Rose",
                 menu,
                 default_action=self._on_icon_click
             )

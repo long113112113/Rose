@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-Global constants for LeagueUnlocked
+Global constants for Rose
 All arbitrary values are centralized here for easy tracking and modification
 """
 
@@ -16,8 +16,8 @@ from utils.paths import get_user_data_dir
 # APPLICATION METADATA
 # =============================================================================
 
-APP_VERSION = "Beta_2.0"                          # Application version
-APP_USER_AGENT = f"LeagueUnlocked/{APP_VERSION}"  # User-Agent header for HTTP requests
+APP_VERSION = "1.0.0"                          # Application version
+APP_USER_AGENT = f"Rose/{APP_VERSION}"  # User-Agent header for HTTP requests
 
 _CONFIG = configparser.ConfigParser()
 
@@ -454,10 +454,10 @@ WINDOWS_DPI_AWARENESS_SYSTEM = 1         # PROCESS_SYSTEM_DPI_AWARE
 # =============================================================================
 
 # Lock file name
-LOCK_FILE_NAME = "leagueunlocked.lock"
+LOCK_FILE_NAME = "rose.lock"
 
 # Log file pattern (handles both .log and .log.enc files)
-LOG_FILE_PATTERN = "leagueunlocked_*.log*"
+LOG_FILE_PATTERN = "rose_*.log*"
 LOG_TIMESTAMP_FORMAT = "%d-%m-%Y_%H-%M-%S"  # European format, Windows-compatible
 
 

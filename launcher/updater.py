@@ -1,4 +1,4 @@
-"""Launcher auto-update logic for LeagueUnlocked.
+"""Launcher auto-update logic for Rose.
 
 Downloads the latest release ZIP from GitHub, stages it under the
 user data directory, and replaces the current installation when running
@@ -162,7 +162,7 @@ def auto_update(
             batch.write('echo [%date% %time%] Update start > "%LOG%"\n')
             batch.write("ping 127.0.0.1 -n 4 >nul\n")
             batch.write('echo [%date% %time%] Mirroring files >> "%LOG%"\n')
-            batch.write('robocopy "%SOURCE%" "%DEST%" /MIR /NFL /NDL /NJH /NJS /XD __pycache__ /XF config.ini license.dat >> "%LOG%" 2>&1\n')
+            batch.write('robocopy "%SOURCE%" "%DEST%" /MIR /NFL /NDL /NJH /NJS /XD __pycache__ /XF config.ini >> "%LOG%" 2>&1\n')
             batch.write("if %ERRORLEVEL% GEQ 8 goto :robofail\n")
             batch.write(f'start "" /D "{install_dir}" "{install_dir / exe_name}"\n')
             batch.write('echo [%date% %time%] Cleaning staging >> "%LOG%"\n')

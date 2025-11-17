@@ -28,8 +28,6 @@ from utils.admin_utils import (
 )
 from utils.logging import get_logger
 from utils.paths import get_asset_path
-from utils.license_client import LicenseClient
-from utils.public_key import PUBLIC_KEY
 from utils.win32_base import (
     BS_DEFPUSHBUTTON,
     BS_PUSHBUTTON,
@@ -69,13 +67,11 @@ class InjectionSettingsWindow(Win32Window):
     VALUE_LABEL_ID = 3102
     SAVE_ID = 3103
     CANCEL_ID = 3104
-    LICENSE_LABEL_ID = 3105
     AUTOSTART_ID = 3106
-    LICENSE_SERVER_URL = "https://api.leagueunlocked.net"
 
     def __init__(self, initial_threshold: float) -> None:
         super().__init__(
-            class_name="LeagueUnlockedSettingsDialog",
+            class_name="RoseSettingsDialog",
             window_title="Settings",
             width=360,
             height=265,
@@ -85,7 +81,6 @@ class InjectionSettingsWindow(Win32Window):
         self.current_threshold = self.initial_threshold
         self.trackbar_hwnd: Optional[int] = None
         self.value_label_hwnd: Optional[int] = None
-        self.license_label_hwnd: Optional[int] = None
         self.autostart_checkbox_hwnd: Optional[int] = None
         self.result: Optional[float] = None
         self.autostart_result: Optional[bool] = None
@@ -93,7 +88,6 @@ class InjectionSettingsWindow(Win32Window):
         self._icon_temp_path: Optional[str] = None
         self._icon_source_path: Optional[str] = self._prepare_window_icon()
         self._autostart_initial, self._autostart_enabled = self._load_autostart_status()
-        self._license_status_text = self._load_license_status_text()
         init_common_controls()
 
     @staticmethod
@@ -168,31 +162,6 @@ class InjectionSettingsWindow(Win32Window):
             log.debug(f"[TraySettings] Failed to load autostart status: {exc}")
             return False, False
 
-    def _load_license_status_text(self) -> str:
-        try:
-            license_client = LicenseClient(
-                server_url=self.LICENSE_SERVER_URL,
-                public_key_pem=PUBLIC_KEY,
-            )
-            info = license_client.get_license_info()
-            if not info:
-                return "License: status unavailable"
-
-            if info.get("is_expired"):
-                return "License: expired"
-
-            days_remaining = info.get("days_remaining")
-            if days_remaining is None:
-                return "License: status unavailable"
-            if days_remaining <= 0:
-                return "License: expires today"
-            if days_remaining == 1:
-                return "License: 1 day remaining"
-            return f"License: {days_remaining} days remaining"
-        except Exception as exc:  # noqa: BLE001
-            log.debug(f"[TraySettings] Failed to load license info: {exc}")
-            return "License: status unavailable"
-
     def on_create(self) -> Optional[int]:
         margin_x = 20
         margin_y = 18
@@ -242,19 +211,6 @@ class InjectionSettingsWindow(Win32Window):
 
         self.send_message(trackbar, TBM_SETRANGE, 1, MAKELPARAM(min_pos, max_pos))
         self.send_message(trackbar, TBM_SETPOS, 1, initial_pos)
-
-        license_label = self.create_control(
-            "STATIC",
-            self._license_status_text,
-            WS_CHILD | WS_VISIBLE,
-            0,
-            margin_x,
-            margin_y + 96,
-            content_width,
-            20,
-            self.LICENSE_LABEL_ID,
-        )
-        self.license_label_hwnd = license_label
 
         autostart_checkbox = self.create_control(
             "BUTTON",
@@ -409,7 +365,7 @@ def show_injection_settings_dialog() -> None:
         user32.MessageBoxW(
             None,
             f"Failed to save settings:\n\n{exc}",
-            "LeagueUnlocked Settings",
+            "Rose Settings",
             MB_OK | MB_ICONERROR | MB_TOPMOST,
         )
         # Even if threshold save fails, fall through to process auto-start changes.
@@ -422,7 +378,7 @@ def show_injection_settings_dialog() -> None:
                 if not is_admin():
                     msg = (
                         "Administrator privileges are required to enable auto-start.\n\n"
-                        "Please restart LeagueUnlocked with Administrator rights and try again."
+                        "Please restart Rose with Administrator rights and try again."
                     )
                     show_message_box_threaded(msg, "Auto-Start", MB_ICONERROR)
                     log.warning("[TraySettings] Auto-start enable blocked - not running as administrator")
@@ -442,7 +398,7 @@ def show_injection_settings_dialog() -> None:
                 if not is_admin():
                     msg = (
                         "Administrator privileges are required to disable auto-start.\n\n"
-                        "Please restart LeagueUnlocked with Administrator rights and try again."
+                        "Please restart Rose with Administrator rights and try again."
                     )
                     show_message_box_threaded(msg, "Auto-Start", MB_ICONERROR)
                     log.warning("[TraySettings] Auto-start disable blocked - not running as administrator")

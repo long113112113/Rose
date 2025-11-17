@@ -1,12 +1,12 @@
-; LeagueUnlocked Installer Script for Inno Setup
+; Rose Installer Script for Inno Setup
 ; This creates a proper Windows installer that registers the app
 
-#define MyAppName "LeagueUnlocked"
-#define MyAppVersion "Beta 2.0"
-#define MyAppVersionInfo "2.0.0.0"
-#define MyAppPublisher "LeagueUnlocked Team"
+#define MyAppName "Rose"
+#define MyAppVersion "1.0.0"
+#define MyAppVersionInfo "1.0.0.0"
+#define MyAppPublisher "Rose Team"
 #define MyAppURL "https://github.com/Alban1911/LeagueUnlocked"
-#define MyAppExeName "LeagueUnlocked.exe"
+#define MyAppExeName "Rose.exe"
 #define MyAppDescription "Automated League of Legends skin changer with Windows UI API detection"
 
 [Setup]
@@ -23,9 +23,8 @@ AppUpdatesURL={#MyAppURL}
 DefaultDirName={autopf}\{#MyAppName}
 DefaultGroupName={#MyAppName}
 AllowNoIcons=yes
-LicenseFile=
 OutputDir=installer
-OutputBaseFilename=LeagueUnlocked_Setup
+OutputBaseFilename=Rose_Setup
 SetupIconFile=assets\icon.ico
 Compression=lzma
 SolidCompression=yes
@@ -49,7 +48,7 @@ Name: "quicklaunchicon"; Description: "{cm:CreateQuickLaunchIcon}"; GroupDescrip
 
 [Files]
 ; Main application files
-Source: "dist\LeagueUnlocked\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
+Source: "dist\Rose\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
 ; NOTE: Don't use "Flags: ignoreversion" on any shared system files
 
 [Icons]

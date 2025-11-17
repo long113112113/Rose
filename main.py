@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-Main entry point for the modularized LeagueUnlocked
+Main entry point for the modularized Rose
 """
 
 # Standard library imports
@@ -23,7 +23,7 @@ from typing import TYPE_CHECKING, Optional, Tuple
 MIN_PYTHON = (3, 11)
 if sys.version_info < MIN_PYTHON:
     raise RuntimeError(
-        f"LeagueUnlocked requires Python {MIN_PYTHON[0]}.{MIN_PYTHON[1]} or newer. "
+        f"Rose requires Python {MIN_PYTHON[0]}.{MIN_PYTHON[1]} or newer. "
         "Please upgrade your interpreter and rebuild the application."
     )
 
@@ -193,7 +193,6 @@ from threads.lcu_monitor_thread import LCUMonitorThread
 from utils.logging import setup_logging, get_logger, log_section, log_success, log_status, get_log_mode
 from utils.tray_manager import TrayManager
 from utils.thread_manager import ThreadManager, create_daemon_thread
-from utils.license_flow import check_license
 from utils import pengu_loader
 
 # Local imports - UI and injection
@@ -385,7 +384,7 @@ def create_lock_file():
         state_dir = get_state_dir()
         state_dir.mkdir(parents=True, exist_ok=True)
         
-        lock_file_path = state_dir / "leagueunlocked.lock"
+        lock_file_path = state_dir / "rose.lock"
         _app_state.lock_file_path = lock_file_path
         
         # Windows-only approach using file creation
@@ -474,17 +473,17 @@ def check_single_instance():
                 # = 0x50010 - Ensures dialog appears on top and gets focus
                 ctypes.windll.user32.MessageBoxW(
                     0, 
-                    "Another instance of LeagueUnlocked is already running!\n\nPlease close the existing instance before starting a new one.",
-                    "LeagueUnlocked - Instance Already Running",
+                    "Another instance of Rose is already running!\n\nPlease close the existing instance before starting a new one.",
+                    "Rose - Instance Already Running",
                     0x50010  # MB_OK | MB_ICONERROR | MB_SETFOREGROUND | MB_TOPMOST
                 )
             except (OSError, AttributeError) as e:
                 # Fallback to logging if MessageBox fails
                 log.error(f"Failed to show message box: {e}")
-                log.error("Another instance of LeagueUnlocked is already running!")
+                log.error("Another instance of Rose is already running!")
                 log.error("Please close the existing instance before starting a new one.")
         else:
-            log.error("Another instance of LeagueUnlocked is already running!")
+            log.error("Another instance of Rose is already running!")
             log.error("Please close the existing instance before starting a new one.")
         sys.exit(1)
 
@@ -496,7 +495,7 @@ def check_single_instance():
 def setup_arguments() -> argparse.Namespace:
     """Parse and return command line arguments"""
     ap = argparse.ArgumentParser(
-        description="LeagueUnlocked - Windows UI API skin detection"
+        description="Rose - Windows UI API skin detection"
     )
     
     # Database arguments
@@ -595,7 +594,7 @@ def setup_logging_and_cleanup(args: argparse.Namespace) -> None:
         pass  # Already shown in setup_logging()
     else:
         # Detailed startup for verbose/debug
-        log_section(log, "LeagueUnlocked Starting", "🚀", {
+        log_section(log, "Rose Starting", "🚀", {
             "Verbose Mode": "Enabled" if args.verbose else "Disabled",
             "Download Skins": "Enabled" if args.download_skins else "Disabled"
         })
@@ -679,7 +678,7 @@ def initialize_qt_and_chroma(skin_scraper, state: SharedState, db=None, app_stat
 
 
 def run_league_unlock(injection_threshold: Optional[float] = None):
-    """Run the core LeagueUnlocked application startup and main loop."""
+    """Run the core Rose application startup and main loop."""
     set_config_option("General", "installed_version", APP_VERSION)
     # Check for admin rights FIRST (required for injection to work)
     from utils.admin_utils import ensure_admin_rights
@@ -694,9 +693,6 @@ def run_league_unlock(injection_threshold: Optional[float] = None):
     # Setup logging and cleanup
     setup_logging_and_cleanup(args)
     pengu_loader.activate_on_start()
-    
-    # Check license validity before continuing
-    check_license()
     
     # Initialize system tray manager immediately to hide console
     tray_manager = initialize_tray_manager(args)
@@ -738,8 +734,8 @@ def run_league_unlock(injection_threshold: Optional[float] = None):
                 # ctypes already imported at top of file
                 ctypes.windll.user32.MessageBoxW(
                     0,
-                    f"LeagueUnlocked failed to initialize:\n\n{str(e)}\n\nCheck the log file for details:\n{log.handlers[0].baseFilename if log.handlers else 'N/A'}",
-                    "LeagueUnlocked - Initialization Error",
+                    f"Rose failed to initialize:\n\n{str(e)}\n\nCheck the log file for details:\n{log.handlers[0].baseFilename if log.handlers else 'N/A'}",
+                    "Rose - Initialization Error",
                     0x50010  # MB_OK | MB_ICONERROR | MB_SETFOREGROUND | MB_TOPMOST
                 )
             except Exception:
@@ -793,8 +789,8 @@ def run_league_unlock(injection_threshold: Optional[float] = None):
                 # ctypes already imported at top of file
                 ctypes.windll.user32.MessageBoxW(
                     0,
-                    f"LeagueUnlocked failed to initialize injection system:\n\n{str(e)}\n\nCheck the log file for details:\n{log.handlers[0].baseFilename if log.handlers else 'N/A'}",
-                    "LeagueUnlocked - Injection Error",
+                    f"Rose failed to initialize injection system:\n\n{str(e)}\n\nCheck the log file for details:\n{log.handlers[0].baseFilename if log.handlers else 'N/A'}",
+                    "Rose - Injection Error",
                     0x50010  # MB_OK | MB_ICONERROR | MB_SETFOREGROUND | MB_TOPMOST
                 )
             except Exception:
@@ -1215,7 +1211,7 @@ def run_league_unlock(injection_threshold: Optional[float] = None):
 
 
 def main():
-    """Program entry point that prepares and launches LeagueUnlocked."""
+    """Program entry point that prepares and launches Rose."""
     if sys.platform == "win32":
         try:
             from launcher.launcher import run_launcher
@@ -1239,7 +1235,7 @@ if __name__ == "__main__":
         
         error_msg = f"""
 ================================================================================
-FATAL ERROR - LeagueUnlocked Crashed
+FATAL ERROR - Rose Crashed
 ================================================================================
 Error: {e}
 Type: {type(e).__name__}
@@ -1249,7 +1245,7 @@ Traceback:
 ================================================================================
 
 This error has been logged. Please report this issue with the log file.
-Log location: Check %LOCALAPPDATA%\\LeagueUnlocked\\logs\\
+Log location: Check %LOCALAPPDATA%\\Rose\\logs\\
 ================================================================================
 """
         
@@ -1268,8 +1264,8 @@ Log location: Check %LOCALAPPDATA%\\LeagueUnlocked\\logs\\
                 # ctypes already imported at top of file
                 ctypes.windll.user32.MessageBoxW(
                     0,
-                    f"LeagueUnlocked crashed with an unhandled error:\n\n{str(e)}\n\nError type: {type(e).__name__}\n\nPlease check the log file in:\n%LOCALAPPDATA%\\LeagueUnlocked\\logs\\",
-                    "LeagueUnlocked - Fatal Error",
+                    f"Rose crashed with an unhandled error:\n\n{str(e)}\n\nError type: {type(e).__name__}\n\nPlease check the log file in:\n%LOCALAPPDATA%\\Rose\\logs\\",
+                    "Rose - Fatal Error",
                     0x50010  # MB_OK | MB_ICONERROR | MB_SETFOREGROUND | MB_TOPMOST
                 )
             except Exception:

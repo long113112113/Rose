@@ -1,6 +1,6 @@
 # -*- mode: python ; coding: utf-8 -*-
 """
-PyInstaller spec file for LeagueUnlocked
+PyInstaller spec file for Rose
 Builds a standalone executable with Windows UI API support
 """
 
@@ -136,7 +136,6 @@ hiddenimports = [
     'ui.chroma_selector',
     'ui.chroma_ui',
     'ui.user_interface',
-    'utils.license_client',
     'utils.logging',
     'utils.normalization',
     'utils.paths',
@@ -173,7 +172,6 @@ hiddenimports = [
     'pystray._win32',
     
     # Native dialogs and settings
-    'utils.license_flow',
     'utils.tray_settings',
     'utils.win32_base',
     
@@ -183,7 +181,6 @@ hiddenimports = [
 
 # Exclusions - modules we don't need (reduces size and build time)
 excludes = [
-    # 'tkinter',  # REMOVED - needed for license dialog
     'matplotlib',
     'pytest',
     'setuptools',
@@ -265,7 +262,7 @@ exe = EXE(
     a.scripts,
     [],
     exclude_binaries=True,
-    name='LeagueUnlocked',
+    name='Rose',
     debug=False,
     bootloader_ignore_signals=False,
     strip=False,
@@ -288,6 +285,6 @@ coll = COLLECT(
     strip=False,
     upx=False,
     upx_exclude=[],
-    name='LeagueUnlocked',
+    name='Rose',
 )
 

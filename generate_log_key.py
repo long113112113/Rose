@@ -45,7 +45,7 @@ def main():
         print(f"   2. Add 'log_encryption_key.txt' to .gitignore")
         print(f"   3. Store a backup of this key separately")
         print(f"\nThe key file will be automatically used by:")
-        print(f"   - LeagueUnlocked (for encrypting logs)")
+        print(f"   - Rose (for encrypting logs)")
         print(f"   - decrypt_log.py (for decrypting logs)")
         
     except Exception as e:

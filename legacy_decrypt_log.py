@@ -41,7 +41,7 @@ def get_encryption_key():
     
     # Priority 3: Default key derived from a fixed password (developer only)
     if password is None:
-        password = b'LeagueUnlocked2024LogEncryptionDefaultKey'
+        password = b'Rose2024LogEncryptionDefaultKey'
     
     # Derive a 32-byte key using PBKDF2
     kdf = PBKDF2HMAC(
