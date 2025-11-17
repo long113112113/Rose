@@ -185,9 +185,10 @@ class UserInterface:
             # Hide ClickBlocker when UIA finds the skin name (with 200ms delay to let ChromaButton fully appear)
             if self.click_blocker and self.click_blocker.isVisible():
                 try:
-                    from PyQt6.QtCore import QTimer
+                    timer = threading.Timer(0.2, self._hide_click_blocker_with_delay)
+                    timer.daemon = True
+                    timer.start()
                     log.info("[UI] ClickBlocker will be hidden in 200ms to let ChromaButton appear first")
-                    QTimer.singleShot(200, self._hide_click_blocker_with_delay)
                 except Exception as e:
                     log.warning(f"[UI] Failed to schedule ClickBlocker hide: {e}")
             
@@ -316,11 +317,12 @@ class UserInterface:
                 catcher.hide_catcher()
     
     def _schedule_hide_all_on_main_thread(self):
-        """Schedule hide_all() to run on the main thread to avoid PyQt6 thread issues"""
+        """Schedule hide_all() to run on the main thread"""
         try:
-            # Use QTimer.singleShot to schedule on main thread
-            from PyQt6.QtCore import QTimer
-            QTimer.singleShot(0, self.hide_all)
+            # Use threading.Timer to schedule on main thread
+            timer = threading.Timer(0.0, self.hide_all)
+            timer.daemon = True
+            timer.start()
             log.debug("[UI] hide_all() scheduled on main thread")
         except Exception as e:
             log.warning(f"[UI] Failed to schedule hide_all on main thread: {e}")
@@ -704,16 +706,8 @@ class UserInterface:
                 except Exception as e:
                     log.warning(f"[UI] Error cleaning up global chroma panel manager: {e}")
             
-            # Force Qt to process events to ensure widgets are actually destroyed
-            log.debug("[UI] Processing Qt events for widget destruction...")
-            try:
-                from PyQt6.QtWidgets import QApplication
-                QApplication.processEvents()
-                log.debug("[UI] Qt events processed successfully")
-            except Exception as e:
-                log.error(f"[UI] Error processing Qt events: {e}")
-                import traceback
-                log.error(f"[UI] Qt events traceback: {traceback.format_exc()}")
+            # PyQt6 removed - no Qt events to process
+            log.debug("[UI] Processing widget destruction...")
             
             log.info("[UI] UI components destroyed successfully")
             

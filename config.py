@@ -213,7 +213,6 @@ INJECTION_LOCK_TIMEOUT_S = 2.0          # Timeout for acquiring injection lock
 # Main loop watchdog timeouts (seconds)
 MAIN_LOOP_STALL_THRESHOLD_S = 5.0       # Threshold for detecting main loop stalls
 MAIN_LOOP_FORCE_QUIT_TIMEOUT_S = 2.0    # Timeout before forcing quit when stop flag is set
-QT_EVENT_PROCESSING_THRESHOLD_S = 1.0   # Warning threshold for Qt event processing
 CHROMA_PANEL_PROCESSING_THRESHOLD_S = 1.0  # Warning threshold for chroma panel processing
 
 # Process priority settings
@@ -240,7 +239,6 @@ API_POLITENESS_DELAY_S = 0.5            # Delay between API calls to be polite
 CONSOLE_BUFFER_CLEAR_INTERVAL_S = 0.5   # Interval to clear console buffer on Windows
 
 # UI animation delays (milliseconds)
-UI_QTIMER_CALLBACK_DELAY_MS = 50        # Delay before executing QTimer callbacks
 
 
 # =============================================================================

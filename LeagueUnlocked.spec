@@ -127,10 +127,7 @@ hiddenimports = [
     'utils',
     'utils.admin_utils',
     'utils.pengu_loader',
-    'ui.chroma_base',
-    'ui.chroma_button',
     'ui.chroma_panel',
-    'ui.chroma_panel_widget',
     'ui.chroma_preview_manager',
     'ui.chroma_scaling',
     'ui.chroma_selector',
@@ -148,12 +145,6 @@ hiddenimports = [
     'utils.historic',
     'utils.validation',
     'utils.window_utils',
-    
-    # PyQt6
-    'PyQt6',
-    'PyQt6.QtCore',
-    'PyQt6.QtGui',
-    'PyQt6.QtWidgets',
     
     # Image processing (PIL only)
     'PIL',
@@ -187,7 +178,6 @@ excludes = [
     'pip',
     'wheel',
     'distutils',
-    'PyQt5',  # Exclude PyQt5 to avoid conflict with PyQt6
     'PySide2',
     'PySide6',
     # Exclude removed packages
