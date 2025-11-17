@@ -769,8 +769,8 @@ def run_league_unlock(injection_threshold: Optional[float] = None):
                 pass
         sys.exit(1)
     
-    # Launcher now handles skin downloads; ensure status reflects ready state
-    app_status.mark_download_process_complete()
+    # Launcher now handles skin downloads; mark complete will be called after all initialization
+    # app_status.mark_download_process_complete()  # Moved to after "System ready"
     
     # Multi-language support is no longer needed - we use LCU scraper + English DB
     # Skin names are matched using: Windows UI API (client lang) → LCU scraper → skinId → English DB
@@ -958,6 +958,13 @@ def run_league_unlock(injection_threshold: Optional[float] = None):
     thread_manager.start_all()
 
     log.info("System ready")
+    
+    # Wait for PenguSkinMonitor thread to be ready (servers started)
+    if t_ui and hasattr(t_ui, 'ready_event'):
+        t_ui.ready_event.wait(timeout=5.0)  # Wait up to 5 seconds for servers to start
+    
+    # Mark app as fully ready after all threads and servers are initialized
+    app_status.mark_download_process_complete()
 
     last_phase = None
     last_loop_time = time.time()

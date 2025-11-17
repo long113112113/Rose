@@ -82,6 +82,9 @@ class PenguSkinMonitorThread(threading.Thread):
         # HTTP server for serving local files
         self._http_server: Optional[HTTPServer] = None
         self._http_port = 3001  # Different port from WebSocket
+        
+        # Ready event to signal when servers are initialized
+        self.ready_event = threading.Event()
 
     # ------------------------------------------------------------------ Thread
     def run(self) -> None:
@@ -106,6 +109,8 @@ class PenguSkinMonitorThread(threading.Thread):
                 self.host,
                 self._http_port,
             )
+            # Signal that servers are ready
+            self.ready_event.set()
             self._loop.run_until_complete(self._shutdown_event.wait())
         except Exception as exc:  # noqa: BLE001
             log.error("[PenguSkinMonitor] Server stopped unexpectedly: %s", exc)
