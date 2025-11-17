@@ -201,5 +201,3 @@ def _resolve_extracted_root(staging_dir: Path) -> Optional[Path]:
     if len(candidates) == 1 and candidates[0].is_dir():
         return candidates[0]
     return staging_dir
-
-

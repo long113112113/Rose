@@ -341,7 +341,3 @@ def get_chroma_panel(state=None, lcu=None) -> ChromaPanelManager:
     if _chroma_panel_manager is None:
         _chroma_panel_manager = ChromaPanelManager(state=state, lcu=lcu)
     return _chroma_panel_manager
-
-
-
-

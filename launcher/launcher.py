@@ -534,4 +534,3 @@ def run_launcher() -> None:
     finally:
         dialog.destroy_window()
         updater_log.info("Update dialog resources released.")
-

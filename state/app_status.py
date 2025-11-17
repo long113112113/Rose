@@ -198,4 +198,3 @@ class AppStatus:
     def is_ready(self) -> bool:
         """Check if all components are ready"""
         return (self._skins_downloaded and self._previews_downloaded)
-

@@ -261,4 +261,3 @@ def ensure_admin_rights():
         request_admin_elevation()
         # If we reach here, elevation failed or was cancelled
         sys.exit(1)
-

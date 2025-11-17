@@ -273,4 +273,3 @@ class LCUSkinScraper:
         return self.cache.chroma_id_map.get(chroma_id)
     
     # No longer using external data for chroma names
-
