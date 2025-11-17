@@ -11,10 +11,10 @@ conda create -n rose python=3.11 -y
 conda activate rose
 
 # Clone the repository
-git clone https://github.com/Alban1911/LU-source.git
+git clone https://github.com/Alban1911/ROSE-source.git
 
 # Navigate to project directory (adjust path as needed)
-cd ".\LU-source"
+cd ".\ROSE-source"
 
 # Switch to dev branch
 git checkout dev
