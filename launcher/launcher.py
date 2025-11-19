@@ -34,6 +34,7 @@ from utils.license_flow import check_license
 from utils.logging import get_logger, get_named_logger
 from utils.paths import get_asset_path
 from utils.skin_downloader import download_skins_on_startup
+from utils.hashes_downloader import ensure_hashes_file
 from utils.win32_base import (
     PBS_MARQUEE,
     PBM_SETRANGE,
@@ -481,6 +482,79 @@ def _perform_skin_sync(dialog: UpdateDialog) -> None:
         updater_log.warning("Skin download failed; continuing without new skins.")
 
 
+def _get_injection_tools_dir() -> Path:
+    """Get the injection/tools directory path (works in both frozen and development environments)"""
+    import sys
+    if getattr(sys, 'frozen', False):
+        # Running as compiled executable (PyInstaller)
+        # Handle both onefile (_MEIPASS) and onedir (_internal) modes
+        if hasattr(sys, '_MEIPASS'):
+            # One-file mode: tools are in _MEIPASS (temporary extraction directory)
+            base_path = Path(sys._MEIPASS)
+            injection_dir = base_path / "injection"
+        else:
+            # One-dir mode: tools are alongside executable
+            base_dir = Path(sys.executable).parent
+            possible_injection_dirs = [
+                base_dir / "injection",  # Direct path
+                base_dir / "_internal" / "injection",  # _internal folder
+            ]
+            
+            injection_dir = None
+            for dir_path in possible_injection_dirs:
+                if dir_path.exists():
+                    injection_dir = dir_path
+                    break
+            
+            if not injection_dir:
+                injection_dir = possible_injection_dirs[0]
+    else:
+        # Running as Python script
+        # Get the launcher directory and go up to root, then to injection
+        launcher_dir = Path(__file__).parent
+        injection_dir = launcher_dir.parent / "injection"
+    
+    return injection_dir / "tools"
+
+
+def _perform_hashes_check(dialog: UpdateDialog) -> None:
+    updater_log.info("Starting hashes file check sequence.")
+    dialog.clear_transfer_text()
+    dialog.set_detail("Checking hashes file…")
+    dialog.set_status("Verifying hashes.game.txt…")
+    dialog.set_marquee(True)
+    dialog.pump_messages()
+
+    try:
+        tools_dir = _get_injection_tools_dir()
+        updater_log.info(f"Tools directory: {tools_dir}")
+        
+        dialog.set_status("Checking for updates…")
+        dialog.pump_messages()
+        
+        success = ensure_hashes_file(tools_dir)
+        
+        if success:
+            dialog.set_marquee(False)
+            dialog.set_progress(100)
+            dialog.set_status("Hashes file ready.")
+            dialog.pump_messages()
+            time.sleep(0.3)
+            updater_log.info("Hashes file check completed successfully.")
+        else:
+            dialog.set_marquee(False)
+            dialog.set_progress(0)
+            dialog.set_status("Continuing without updating hashes file.")
+            dialog.pump_messages()
+            updater_log.warning("Hashes file check failed; continuing anyway (non-critical).")
+    except Exception as exc:  # noqa: BLE001
+        log.error(f"Hashes check failed: {exc}")
+        dialog.set_status(f"Hashes check failed: {exc}")
+        dialog.set_progress(0)
+        dialog.pump_messages()
+        updater_log.exception("Hashes check raised an exception", exc_info=True)
+
+
 def _perform_license_check(dialog: UpdateDialog) -> None:
     updater_log.info("Starting license validation sequence.")
     dialog.set_detail("Validating license…")
@@ -521,6 +595,7 @@ def run_launcher() -> None:
         def worker():
             try:
                 _perform_update(dialog)
+                _perform_hashes_check(dialog)
                 _perform_skin_sync(dialog)
                 _perform_license_check(dialog)
 
