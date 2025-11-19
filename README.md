@@ -99,7 +99,7 @@ cd Rose
 # Switch to dev branch
 git checkout dev
 
-# Initialize and update submodules ([Pengu Loader](https://github.com/FlorentTariolle/ROSE-Pengu) plugins)
+# Initialize and update submodules (Pengu Loader plugins)
 git submodule update --init --recursive
 
 # Install all dependencies
@@ -116,10 +116,10 @@ Rose/
 ├── config.py              # Configuration constants
 ├── requirements.txt       # Python dependencies
 │
-├── injection/             # [CSLOL](https://github.com/LeagueToolkit/cslol-manager) injection system
-│   ├── injector.py       # [CSLOL](https://github.com/LeagueToolkit/cslol-manager) skin injector
+├── injection/             # CSLOL injection system
+│   ├── injector.py       # CSLOL skin injector
 │   ├── manager.py        # Injection manager & coordination
-│   └── tools/            # [CSLOL](https://github.com/LeagueToolkit/cslol-manager) tools (cslol-dll.dll, mod-tools.exe, etc.)
+│   └── tools/            # CSLOL tools (cslol-dll.dll, mod-tools.exe, etc.)
 │
 ├── lcu/                   # League Client API integration
 │   ├── client.py         # LCU API client
@@ -133,22 +133,22 @@ Rose/
 │   └── lcu_monitor_thread.py  # LCU connection monitoring
 │
 ├── utils/                 # Utility modules
-│   ├── pengu_loader.py   # [Pengu Loader](https://github.com/FlorentTariolle/ROSE-Pengu) integration
+│   ├── pengu_loader.py        # Pengu Loader integration
 │   ├── skin_downloader.py     # Skin repository downloader
 │   └── tray_manager.py        # System tray interface
 │
 ├── state/                 # Shared application state
 │   └── shared_state.py   # Thread-safe state management
 │
-└── Pengu Loader/          # [Pengu Loader](https://github.com/FlorentTariolle/ROSE-Pengu) and plugins
-    ├── Pengu Loader.exe   # [Pengu Loader](https://github.com/FlorentTariolle/ROSE-Pengu) executable
+└── Pengu Loader/          # Pengu Loader and plugins
+    ├── Pengu Loader.exe   # Pengu Loader executable
     └── plugins/           # JavaScript plugins
-        ├── [ROSE-UI](https://github.com/Alban1911/ROSE-UI)/
-        ├── [ROSE-SkinMonitor](https://github.com/Alban1911/ROSE-SkinMonitor)/
-        ├── [ROSE-ChromaWheel](https://github.com/Alban1911/ROSE-ChromaWheel)/
-        ├── [ROSE-SettingsPanel](https://github.com/FlorentTariolle/ROSE-SettingsPanel)/
-        ├── [ROSE-RandomSkin](https://github.com/FlorentTariolle/ROSE-RandomSkin)/
-        └── [ROSE-HistoricMode](https://github.com/FlorentTariolle/ROSE-HistoricMode)/
+        ├── ROSE-UI/
+        ├── ROSE-SkinMonitor/
+        ├── ROSE-ChromaWheel/
+        ├── ROSE-SettingsPanel/
+        ├── ROSE-RandomSkin/
+        └── ROSE-HistoricMode/
 ```
 
 ## Usage
