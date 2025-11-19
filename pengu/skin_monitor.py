@@ -453,29 +453,63 @@ class PenguSkinMonitorThread(threading.Thread):
                 log.error(f"[SkinMonitor] Failed to handle path validation: {e}")
             return
 
-        if payload_type == "open-plugins-folder":
-            # Handle open plugins folder request from JavaScript plugin
+        if payload_type == "open-mods-folder":
+            # Handle open mods folder request from JavaScript plugin
             try:
                 import os
                 import subprocess
                 import sys
-                from utils.pengu_loader import PENGU_DIR
+                from utils.paths import get_user_data_dir
                 
-                # Get plugins folder path
-                plugins_folder = PENGU_DIR / "plugins"
+                # Get mods folder path at root of Rose appdata directory
+                mods_folder = get_user_data_dir() / "mods"
                 
-                if plugins_folder.exists() and plugins_folder.is_dir():
-                    # Open folder in Windows Explorer (os.startfile works on Windows)
-                    if sys.platform == "win32":
-                        os.startfile(str(plugins_folder))
-                    else:
-                        # Fallback for other platforms (Linux/macOS)
-                        subprocess.Popen(["xdg-open" if os.name != "nt" else "explorer", str(plugins_folder)])
-                    log.info(f"[SkinMonitor] Opened plugins folder: {plugins_folder}")
+                # Create folder if it doesn't exist
+                mods_folder.mkdir(parents=True, exist_ok=True)
+                
+                # Open folder in Windows Explorer (os.startfile works on Windows)
+                if sys.platform == "win32":
+                    os.startfile(str(mods_folder))
                 else:
-                    log.warning(f"[SkinMonitor] Plugins folder not found: {plugins_folder}")
+                    # Fallback for other platforms (Linux/macOS)
+                    subprocess.Popen(["xdg-open" if os.name != "nt" else "explorer", str(mods_folder)])
+                log.info(f"[SkinMonitor] Opened mods folder: {mods_folder}")
             except Exception as e:
-                log.error(f"[SkinMonitor] Failed to open plugins folder: {e}")
+                log.error(f"[SkinMonitor] Failed to open mods folder: {e}")
+            return
+
+        if payload_type == "open-pengu-loader-ui":
+            # Handle open Pengu Loader UI request from JavaScript plugin
+            try:
+                import subprocess
+                import sys
+                from utils.pengu_loader import PENGU_DIR, PENGU_EXE
+                
+                if not PENGU_EXE.exists():
+                    log.warning(f"[SkinMonitor] Pengu Loader executable not found: {PENGU_EXE}")
+                    return
+                
+                # Launch Pengu Loader with --ui flag
+                # Use Popen instead of run so it doesn't block, and don't use CREATE_NO_WINDOW so the window appears
+                command = [str(PENGU_EXE), "--ui"]
+                
+                if sys.platform == "win32":
+                    # On Windows, launch without CREATE_NO_WINDOW so the UI window appears
+                    subprocess.Popen(
+                        command,
+                        cwd=str(PENGU_DIR),
+                        creationflags=0  # No CREATE_NO_WINDOW flag
+                    )
+                else:
+                    # On other platforms, just launch normally
+                    subprocess.Popen(
+                        command,
+                        cwd=str(PENGU_DIR)
+                    )
+                
+                log.info(f"[SkinMonitor] Launched Pengu Loader UI: {' '.join(command)}")
+            except Exception as e:
+                log.error(f"[SkinMonitor] Failed to launch Pengu Loader UI: {e}")
             return
 
         if payload_type == "settings-save":
