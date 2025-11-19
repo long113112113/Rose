@@ -478,6 +478,31 @@ class PenguSkinMonitorThread(threading.Thread):
                 log.error(f"[SkinMonitor] Failed to open mods folder: {e}")
             return
 
+        if payload_type == "open-logs-folder":
+            # Handle open logs folder request from JavaScript plugin
+            try:
+                import os
+                import subprocess
+                import sys
+                from utils.paths import get_user_data_dir
+                
+                # Get logs folder path at root of Rose appdata directory
+                logs_folder = get_user_data_dir() / "logs"
+                
+                # Create folder if it doesn't exist
+                logs_folder.mkdir(parents=True, exist_ok=True)
+                
+                # Open folder in Windows Explorer (os.startfile works on Windows)
+                if sys.platform == "win32":
+                    os.startfile(str(logs_folder))
+                else:
+                    # Fallback for other platforms (Linux/macOS)
+                    subprocess.Popen(["xdg-open" if os.name != "nt" else "explorer", str(logs_folder)])
+                log.info(f"[SkinMonitor] Opened logs folder: {logs_folder}")
+            except Exception as e:
+                log.error(f"[SkinMonitor] Failed to open logs folder: {e}")
+            return
+
         if payload_type == "open-pengu-loader-ui":
             # Handle open Pengu Loader UI request from JavaScript plugin
             try:
