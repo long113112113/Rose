@@ -5,50 +5,13 @@ LCU Skin Scraper - Scrape skins for a specific champion from LCU
 """
 
 from typing import Optional, Dict, List, Tuple
-from utils.logging import get_logger
+
 from config import LCU_SKIN_SCRAPER_TIMEOUT_S, SKIN_NAME_MIN_SIMILARITY
+from utils.logging import get_logger
+
+from .skin_cache import ChampionSkinCache
 
 log = get_logger()
-
-
-class ChampionSkinCache:
-    """Cache for champion skins scraped from LCU"""
-    
-    def __init__(self):
-        self.champion_id = None
-        self.champion_name = None
-        self.skins = []  # List of {skinId, skinName, isBase, chromas, chromaDetails}
-        self.skin_id_map = {}  # skinId -> skin data
-        self.skin_name_map = {}  # skinName -> skin data
-        self.chroma_id_map = {}  # chromaId -> chroma data (for quick lookup)
-        # No longer using external data sources - LCU provides all needed data
-    
-    def clear(self):
-        """Clear the cache"""
-        self.champion_id = None
-        self.champion_name = None
-        self.skins = []
-        self.skin_id_map = {}
-        self.skin_name_map = {}
-        self.chroma_id_map = {}
-        # No longer using external data sources
-    
-    def is_loaded_for_champion(self, champion_id: int) -> bool:
-        """Check if cache is loaded for a specific champion"""
-        return self.champion_id == champion_id and bool(self.skins)
-    
-    def get_skin_by_id(self, skin_id: int) -> Optional[Dict]:
-        """Get skin data by skin ID"""
-        return self.skin_id_map.get(skin_id)
-    
-    def get_skin_by_name(self, skin_name: str) -> Optional[Dict]:
-        """Get skin data by skin name (exact match)"""
-        return self.skin_name_map.get(skin_name)
-    
-    @property
-    def all_skins(self) -> List[Dict]:
-        """Get all skins for the cached champion"""
-        return self.skins.copy()
 
 
 class LCUSkinScraper:
@@ -62,8 +25,6 @@ class LCUSkinScraper:
         """
         self.lcu = lcu_client
         self.cache = ChampionSkinCache()
-    
-    # No longer fetching external data - LCU provides all needed information
     
     def scrape_champion_skins(self, champion_id: int, force_refresh: bool = False) -> bool:
         """Scrape all skins for a specific champion from LCU
@@ -111,8 +72,6 @@ class LCUSkinScraper:
         self.cache.champion_id = champion_id
         self.cache.champion_name = champ_data.get('name', f'Champion{champion_id}')
         
-        # Using only LCU data - no external sources needed
-        
         # Extract skins
         raw_skins = champ_data.get('skins', [])
         
@@ -158,11 +117,11 @@ class LCUSkinScraper:
             skin_data = {
                 'skinId': skin_id,
                 'championId': champion_id,
-                'skinName': english_skin_name,  # Use English skin name
+                'skinName': english_skin_name,
                 'isBase': skin.get('isBase', False),
                 'chromas': len(raw_chromas),
-                'chromaDetails': chroma_details,  # Full chroma data
-                'num': skin.get('num', 0)  # Skin number (0 = base)
+                'chromaDetails': chroma_details,
+                'num': skin.get('num', 0)
             }
             
             self.cache.skins.append(skin_data)
@@ -178,8 +137,6 @@ class LCUSkinScraper:
                 log.debug(f"  - {skin['skinName']} (ID: {skin['skinId']})")
         
         return True
-    
-    # No longer converting to English - using LCU localized names directly
     
     def find_skin_by_text(self, text: str, use_levenshtein: bool = True) -> Optional[Tuple[int, str, float]]:
         """Find best matching skin by text using Levenshtein distance
@@ -267,5 +224,3 @@ class LCUSkinScraper:
             Chroma dict or None if not found
         """
         return self.cache.chroma_id_map.get(chroma_id)
-    
-    # No longer using external data for chroma names
