@@ -581,8 +581,7 @@ def run_league_unlock(injection_threshold: Optional[float] = None):
         log.info("Initializing LCU client...")
         lcu = LCU(args.lockfile)
         log.info("✓ LCU client initialized")
-        
-        
+
         log.info("Initializing skin scraper...")
         skin_scraper = LCUSkinScraper(lcu)
         log.info("✓ Skin scraper initialized")
@@ -620,8 +619,7 @@ def run_league_unlock(injection_threshold: Optional[float] = None):
     # PyQt6 removed - chroma UI is now handled by JavaScript plugins
     qt_app = None
     chroma_selector = None
-    
-    
+
     # Initialize injection manager with database (lazy initialization)
     try:
         log.info("Initializing injection manager...")

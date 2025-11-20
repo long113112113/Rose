@@ -430,79 +430,13 @@ class PhaseThread(threading.Thread):
         except Exception as e:
             log.warning(f"[phase] Error processing Swiftplay champion selection: {e}")
     
-    def _process_swiftplay_data(self, endpoint: str, data):
-        """Process data from Swiftplay API endpoints to find champion selection"""
-        try:
-            # This is where we'll need to implement the logic to extract
-            # champion selection from Swiftplay lobby data
-            # The exact structure will depend on what the API returns
-            
-            if endpoint == "/lol-lobby/v2/lobby":
-                # Process lobby data for champion selection
-                if isinstance(data, dict):
-                    # Look for champion selection in lobby data
-                    # This might be in a different structure than champ select
-                    pass
-                    
-            elif endpoint == "/lol-lobby/v2/lobby/matchmaking/search-state":
-                # Process matchmaking search state
-                if isinstance(data, dict):
-                    pass
-                    
-        except Exception as e:
-            log.debug(f"[phase] Error processing Swiftplay data from {endpoint}: {e}")
-    
     def _start_swiftplay_monitoring(self):
         """Start continuous monitoring for Swiftplay lobby changes"""
-        try:
-            # This method could be expanded to set up a timer or background task
-            # to continuously check for changes in Swiftplay lobby
-            log.debug("[phase] Swiftplay monitoring started - will check for changes periodically")
-            
-            # For now, we'll rely on the main loop to check periodically
-            # In the future, this could be a separate thread or timer
-            
-        except Exception as e:
-            log.warning(f"[phase] Error starting Swiftplay monitoring: {e}")
+        log.debug("[phase] Swiftplay monitoring started - will check for changes periodically")
     
     def _cleanup_click_catchers_for_swiftplay(self):
         """Legacy method - no-op for compatibility."""
         pass
-    
-    def test_swiftplay_detection(self):
-        """Test method to verify Swiftplay detection is working"""
-        try:
-            if not self.lcu.ok:
-                log.warning("[phase] LCU not connected - cannot test Swiftplay detection")
-                return False
-            
-            # Test game mode detection
-            game_mode = self.lcu.game_mode
-            is_swiftplay = self.lcu.is_swiftplay
-            
-            log.info(f"[phase] Swiftplay test - Game mode: {game_mode}, Is Swiftplay: {is_swiftplay}")
-            
-            # Test Swiftplay lobby data retrieval
-            lobby_data = self.lcu.get_swiftplay_lobby_data()
-            if lobby_data:
-                log.info(f"[phase] Swiftplay test - Lobby data retrieved: {type(lobby_data)}")
-                log.info(f"[phase] Swiftplay test - Lobby data keys: {list(lobby_data.keys()) if isinstance(lobby_data, dict) else 'Not a dict'}")
-            else:
-                log.info("[phase] Swiftplay test - No lobby data available")
-            
-            # Test champion selection
-            champion_selection = self.lcu.get_swiftplay_champion_selection()
-            if champion_selection:
-                log.info(f"[phase] Swiftplay test - Champion selection: {champion_selection}")
-            else:
-                log.info("[phase] Swiftplay test - No champion selection found")
-            
-            return True
-            
-        except Exception as e:
-            log.warning(f"[phase] Error testing Swiftplay detection: {e}")
-            return False
-    
     
     def _start_swiftplay_matchmaking_monitoring(self):
         """Start monitoring matchmaking state for injection triggering"""

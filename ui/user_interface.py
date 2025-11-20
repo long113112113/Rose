@@ -105,7 +105,6 @@ class UserInterface:
 
             # DiceButton is now handled by JavaScript (Rose-RandomSkin plugin)
 
-
         except Exception as e:
             log.error(f"[UI] Failed to initialize UI components: {e}")
             import traceback
