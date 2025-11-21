@@ -95,6 +95,22 @@ else:
 
 # Hidden imports - modules PyInstaller might not detect
 hiddenimports = [
+    # Main package modules
+    'main',
+    'main.setup',
+    'main.setup.console',
+    'main.setup.arguments',
+    'main.setup.initialization',
+    'main.core',
+    'main.core.state',
+    'main.core.lockfile',
+    'main.core.signals',
+    'main.core.initialization',
+    'main.core.threads',
+    'main.core.lcu_handler',
+    'main.core.cleanup',
+    'main.runtime',
+    'main.runtime.loop',
     # Core app modules
     'injection',
     'injection.injector',
