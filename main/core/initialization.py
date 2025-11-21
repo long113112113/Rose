@@ -12,7 +12,7 @@ from lcu.client import LCU
 from lcu.skin_scraper import LCUSkinScraper
 from state.shared_state import SharedState
 from state.app_status import AppStatus
-from injection.manager import InjectionManager
+from injection import InjectionManager
 from utils.core.logging import get_logger, log_success
 from utils.system.admin_utils import ensure_admin_rights
 from config import APP_VERSION, set_config_option

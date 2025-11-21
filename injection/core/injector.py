@@ -14,13 +14,13 @@ from typing import List, Optional
 from utils.core.logging import get_logger, log_action, log_success
 from utils.core.paths import get_skins_dir, get_injection_dir
 
-from .config_manager import ConfigManager
-from .game_detector import GameDetector
-from .tools_manager import ToolsManager
-from .zip_resolver import ZipResolver
-from .mod_manager import ModManager
-from .overlay_manager import OverlayManager
-from .process_manager import ProcessManager
+from ..config.config_manager import ConfigManager
+from ..game.game_detector import GameDetector
+from ..tools.tools_manager import ToolsManager
+from ..mods.zip_resolver import ZipResolver
+from ..mods.mod_manager import ModManager
+from ..overlay.overlay_manager import OverlayManager
+from ..overlay.process_manager import ProcessManager
 
 log = get_logger()
 
@@ -62,7 +62,7 @@ class SkinInjector:
                     log.warning(f"Injection directory not found, using default: {injection_dir}")
         else:
             # Running as Python script
-            injection_dir = Path(__file__).parent
+            injection_dir = Path(__file__).parent.parent
         
         # If tools_dir is provided, use it
         if tools_dir:

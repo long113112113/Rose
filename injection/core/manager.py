@@ -18,8 +18,8 @@ from config import (
 from utils.core.logging import get_logger, log_action, log_success
 
 from .injector import SkinInjector
-from .game_monitor import GameMonitor
-from .threshold_manager import ThresholdManager
+from ..game.game_monitor import GameMonitor
+from ..config.threshold_manager import ThresholdManager
 
 log = get_logger()
 
@@ -471,6 +471,6 @@ class InjectionManager:
                     injection_dir = possible_injection_dirs[0]
         else:
             # Running as Python script
-            injection_dir = Path(__file__).parent.parent / "injection"
+            injection_dir = Path(__file__).parent.parent
         
         return injection_dir
