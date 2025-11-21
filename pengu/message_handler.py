@@ -15,8 +15,8 @@ import time
 from pathlib import Path
 
 from config import get_config_float, get_config_option, set_config_option
-from utils.paths import get_user_data_dir, get_asset_path
-from utils.admin_utils import (
+from utils.core.paths import get_user_data_dir, get_asset_path
+from utils.system.admin_utils import (
     is_admin,
     is_registered_for_autostart,
     register_autostart,
@@ -313,7 +313,7 @@ class MessageHandler:
     def _handle_open_pengu_loader_ui(self, payload: dict) -> None:
         """Handle open Pengu Loader UI request"""
         try:
-            from utils.pengu_loader import PENGU_DIR, PENGU_EXE
+            from utils.integration.pengu_loader import PENGU_DIR, PENGU_EXE
             
             if not PENGU_EXE.exists():
                 log.warning(f"[SkinMonitor] Pengu Loader executable not found: {PENGU_EXE}")

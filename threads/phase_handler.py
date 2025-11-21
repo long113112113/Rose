@@ -9,7 +9,7 @@ import logging
 from lcu.client import LCU
 from state.shared_state import SharedState
 from ui.chroma.selector import get_chroma_selector
-from utils.logging import get_logger, log_action
+from utils.core.logging import get_logger, log_action
 
 log = get_logger()
 

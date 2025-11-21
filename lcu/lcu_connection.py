@@ -11,7 +11,7 @@ from typing import Optional
 
 import requests
 
-from utils.logging import get_logger, log_section, log_success
+from utils.core.logging import get_logger, log_section, log_success
 
 from .lockfile import find_lockfile, parse_lockfile
 

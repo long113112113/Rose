@@ -10,7 +10,7 @@ from typing import Optional
 from pathlib import Path
 from urllib.parse import urlparse, unquote
 
-from utils.paths import get_skins_dir, get_asset_path
+from utils.core.paths import get_skins_dir, get_asset_path
 
 log = logging.getLogger(__name__)
 
@@ -134,7 +134,7 @@ class HTTPHandler:
         if len(parts) == 2:
             plugin_name, file_name = parts
             try:
-                from utils.paths import get_app_dir
+                from utils.core.paths import get_app_dir
                 app_dir = get_app_dir()
                 plugins_dir = app_dir.parent / "Pengu Loader" / "plugins"
                 if not plugins_dir.exists():

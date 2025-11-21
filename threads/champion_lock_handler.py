@@ -13,7 +13,7 @@ from lcu.client import LCU
 from lcu.utils import compute_locked
 from state.shared_state import SharedState
 from ui.chroma.selector import get_chroma_selector
-from utils.logging import get_logger, log_status, log_event
+from utils.core.logging import get_logger, log_status, log_event
 
 log = get_logger()
 

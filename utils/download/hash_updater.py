@@ -9,7 +9,7 @@ import json
 import requests
 from pathlib import Path
 from typing import Optional, Dict, Callable
-from utils.logging import get_logger, log_success
+from utils.core.logging import get_logger, log_success
 from config import APP_USER_AGENT, get_config_file_path
 
 log = get_logger()

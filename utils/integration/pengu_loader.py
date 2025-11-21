@@ -20,8 +20,8 @@ try:
 except ImportError:  # pragma: no cover - psutil is part of requirements, but guard just in case
     psutil = None  # type: ignore
 
-from utils.logging import get_logger
-from utils.paths import get_app_dir
+from utils.core.logging import get_logger
+from utils.core.paths import get_app_dir
 
 log = get_logger("pengu_loader")
 

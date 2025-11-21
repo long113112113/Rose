@@ -10,7 +10,7 @@ import json
 import requests
 from pathlib import Path
 from typing import Optional, Dict
-from utils.logging import get_logger
+from utils.core.logging import get_logger
 from config import APP_USER_AGENT, RATE_LIMIT_REQUEST_TIMEOUT
 
 log = get_logger()

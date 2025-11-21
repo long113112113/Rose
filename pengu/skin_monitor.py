@@ -15,7 +15,7 @@ import logging
 import threading
 from typing import Optional
 
-from utils.utilities import find_free_port
+from utils.core.utilities import find_free_port
 
 from .websocket_server import WebSocketServer
 from .http_handler import HTTPHandler

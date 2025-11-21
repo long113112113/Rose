@@ -9,7 +9,7 @@ from pathlib import Path
 from typing import Optional, Callable
 import pystray
 from PIL import Image, ImageDraw
-from utils.logging import get_logger
+from utils.core.logging import get_logger
 from config import (
     TRAY_READY_MAX_WAIT_S, TRAY_READY_CHECK_INTERVAL_S,
     TRAY_THREAD_JOIN_TIMEOUT_S, TRAY_ICON_WIDTH, TRAY_ICON_HEIGHT,
@@ -76,7 +76,7 @@ class TrayManager:
         """
         try:
             # Use proper asset path resolution for PyInstaller compatibility
-            from utils.paths import get_asset_path
+            from utils.core.paths import get_asset_path
             icon_path = get_asset_path(icon_name)
             
             if icon_path.exists():
@@ -175,13 +175,13 @@ class TrayManager:
         """Open the injection threshold settings dialog."""
         log.info("Settings requested from system tray")
         try:
-            from utils.tray_settings import show_injection_settings_dialog
+            from utils.integration.tray_settings import show_injection_settings_dialog
 
             show_injection_settings_dialog()
         except Exception as e:
             log.error(f"Failed to open settings dialog: {e}")
             try:
-                from utils.admin_utils import show_message_box_threaded
+                from utils.system.admin_utils import show_message_box_threaded
 
                 show_message_box_threaded(
                     f"Failed to open settings dialog:\n\n{e}",

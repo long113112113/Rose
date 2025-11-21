@@ -40,7 +40,7 @@ if TYPE_CHECKING:
     from pengu.skin_monitor import PenguSkinMonitorThread
     from threads.websocket_thread import WSEventThread
     from threads.lcu_monitor_thread import LCUMonitorThread
-    from utils.tray_manager import TrayManager
+    from utils.integration.tray_manager import TrayManager
     from ui.core.user_interface import UserInterface
     from injection.manager import InjectionManager
 
@@ -190,10 +190,10 @@ from threads.websocket_thread import WSEventThread
 from threads.lcu_monitor_thread import LCUMonitorThread
 
 # Local imports - utilities
-from utils.logging import setup_logging, get_logger, log_section, log_success, log_status, get_log_mode
-from utils.tray_manager import TrayManager
-from utils.thread_manager import ThreadManager, create_daemon_thread
-from utils import pengu_loader
+from utils.core.logging import setup_logging, get_logger, log_section, log_success, log_status, get_log_mode
+from utils.integration.tray_manager import TrayManager
+from utils.threading.thread_manager import ThreadManager, create_daemon_thread
+import utils.integration.pengu_loader as pengu_loader
 
 # Local imports - UI and injection
 from ui.core.user_interface import get_user_interface
@@ -336,7 +336,7 @@ def create_lock_file():
     """Create a lock file to prevent multiple instances"""
     try:
         # Create a lock file in the state directory
-        from utils.paths import get_state_dir
+        from utils.core.paths import get_state_dir
         state_dir = get_state_dir()
         state_dir.mkdir(parents=True, exist_ok=True)
         
@@ -495,7 +495,7 @@ def setup_arguments() -> argparse.Namespace:
 def setup_logging_and_cleanup(args: argparse.Namespace) -> None:
     """Setup logging and clean up old logs and debug folders"""
     # Clean up old log files on startup
-    from utils.logging import cleanup_logs
+    from utils.core.logging import cleanup_logs
     cleanup_logs()
     
     # Determine log mode based on flags
@@ -553,7 +553,7 @@ def run_league_unlock(injection_threshold: Optional[float] = None):
     """Run the core Rose application startup and main loop."""
     set_config_option("General", "installed_version", APP_VERSION)
     # Check for admin rights FIRST (required for injection to work)
-    from utils.admin_utils import ensure_admin_rights
+    from utils.system.admin_utils import ensure_admin_rights
     ensure_admin_rights()
     
     # Check for single instance before doing anything else
@@ -632,7 +632,7 @@ def run_league_unlock(injection_threshold: Optional[float] = None):
         
         # Ensure hashes.game.txt exists and is up to date
         try:
-            from utils.hashes_downloader import ensure_hashes_file
+            from utils.download.hashes_downloader import ensure_hashes_file
             # Get the tools directory path
             injection_dir = injection_manager._get_injection_dir()
             tools_dir = injection_dir / "tools"
@@ -894,7 +894,7 @@ def run_league_unlock(injection_threshold: Optional[float] = None):
                     current_skin_id = state.ui_skin_id
                     current_skin_name = state.ui_last_text or f"Skin {current_skin_id}"
                     # Calculate champion ID from skin ID for Swiftplay
-                    from utils.utilities import get_champion_id_from_skin_id
+                    from utils.core.utilities import get_champion_id_from_skin_id
                     champion_id = get_champion_id_from_skin_id(current_skin_id)
                     champion_name = None
                     # Load champion data if not already loaded

@@ -8,8 +8,8 @@ Handles random skin selection logic
 import random
 from typing import Optional, Tuple
 from state.shared_state import SharedState
-from utils.logging import get_logger
-from utils.utilities import is_base_skin
+from utils.core.logging import get_logger
+from utils.core.utilities import is_base_skin
 
 log = get_logger()
 

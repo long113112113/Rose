@@ -8,7 +8,7 @@ Handles resolution of skin and chroma ZIP files
 from pathlib import Path
 from typing import Optional
 
-from utils.logging import get_logger, log_success
+from utils.core.logging import get_logger, log_success
 
 log = get_logger()
 

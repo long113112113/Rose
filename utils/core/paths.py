@@ -86,7 +86,8 @@ def get_app_dir() -> Path:
         return Path(sys.executable).parent
     else:
         # Running as script
-        return Path(__file__).parent.parent
+        # __file__ is utils/core/paths.py, so we need to go up 3 levels to get to root
+        return Path(__file__).parent.parent.parent
 
 
 def get_asset_path(asset_name: str) -> Path:

@@ -5,8 +5,8 @@ Application Status Manager
 Manages the app state and tray icon status based on initialization checks
 """
 
-from utils.logging import get_logger
-from utils.paths import get_skins_dir
+from utils.core.logging import get_logger
+from utils.core.paths import get_skins_dir
 
 log = get_logger()
 

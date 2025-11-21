@@ -11,7 +11,7 @@ import threading
 
 # Local imports
 from ui.chroma.selector import ChromaSelector
-from utils.logging import get_logger
+from utils.core.logging import get_logger
 
 log = get_logger()
 

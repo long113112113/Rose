@@ -11,8 +11,8 @@ import shutil
 from pathlib import Path
 from typing import List, Optional
 
-from utils.logging import get_logger, log_action, log_success
-from utils.paths import get_skins_dir, get_injection_dir
+from utils.core.logging import get_logger, log_action, log_success
+from utils.core.paths import get_skins_dir, get_injection_dir
 
 from .config_manager import ConfigManager
 from .game_detector import GameDetector

@@ -24,7 +24,7 @@ from config import (
     GAME_RESUME_VERIFICATION_WAIT_S,
     get_config_float
 )
-from utils.logging import get_logger, log_section, log_event, log_success
+from utils.core.logging import get_logger, log_section, log_event, log_success
 
 log = get_logger()
 

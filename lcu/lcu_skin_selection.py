@@ -6,7 +6,7 @@ Handles skin selection via LCU API
 """
 
 from config import LCU_API_TIMEOUT_S
-from utils.logging import get_logger
+from utils.core.logging import get_logger
 
 log = get_logger()
 

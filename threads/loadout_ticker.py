@@ -8,7 +8,7 @@ import time
 import threading
 from lcu.client import LCU
 from state.shared_state import SharedState
-from utils.logging import get_logger
+from utils.core.logging import get_logger
 from config import (
     TIMER_HZ_MIN, TIMER_HZ_MAX, TIMER_POLL_PERIOD_S,
     SKIN_THRESHOLD_MS_DEFAULT,

@@ -10,7 +10,7 @@ import logging
 from typing import Optional
 from pathlib import Path
 
-from utils.paths import get_user_data_dir
+from utils.core.paths import get_user_data_dir
 
 log = logging.getLogger(__name__)
 

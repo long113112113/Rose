@@ -12,7 +12,7 @@ from pathlib import Path
 from typing import Callable, Optional
 
 from config import APP_VERSION, get_config_file_path
-from utils.logging import get_logger, get_named_logger
+from utils.core.logging import get_logger, get_named_logger
 
 from .github_client import GitHubClient
 from .update_downloader import UpdateDownloader

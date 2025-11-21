@@ -10,8 +10,8 @@ import shutil
 from pathlib import Path
 from typing import List
 
-from utils.logging import get_logger, log_success
-from utils.paths import get_user_data_dir
+from utils.core.logging import get_logger, log_success
+from utils.core.paths import get_user_data_dir
 
 log = get_logger()
 

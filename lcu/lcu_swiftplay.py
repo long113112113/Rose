@@ -7,7 +7,7 @@ Handles Swiftplay-specific lobby data and champion selection
 
 from typing import Optional
 
-from utils.logging import get_logger
+from utils.core.logging import get_logger
 
 from .lockfile import SWIFTPLAY_MODES
 
@@ -144,7 +144,7 @@ class LCUSwiftplay:
     def _extract_champion_selection_from_data(self, data: dict) -> Optional[dict]:
         """Extract champion selection from lobby data"""
         try:
-            from utils.utilities import get_champion_id_from_skin_id
+            from utils.core.utilities import get_champion_id_from_skin_id
 
             # Helper to build champion selection dict when we have IDs
             def _build_selection(champ_id: int, skin_id: int, slot: Optional[dict] = None) -> Optional[dict]:

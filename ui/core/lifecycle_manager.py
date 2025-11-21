@@ -9,7 +9,7 @@ import threading
 import time
 from state.shared_state import SharedState
 from ui.chroma.ui import ChromaUI
-from utils.logging import get_logger
+from utils.core.logging import get_logger
 
 log = get_logger()
 

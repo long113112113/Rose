@@ -11,7 +11,7 @@ import threading
 
 # Local imports
 from ui.chroma.ui import ChromaUI
-from utils.logging import get_logger
+from utils.core.logging import get_logger
 
 from ui.handlers.historic_mode_handler import HistoricModeHandler
 from ui.handlers.randomization_handler import RandomizationHandler
@@ -119,7 +119,7 @@ class UserInterface:
             # Historic mode deactivation: if skin changes from default to non-default, deactivate historic mode
             # Calculate base_skin_id if not provided by display handler
             if new_base_skin_id is None and self.skin_scraper and self.skin_scraper.cache:
-                from utils.utilities import is_base_skin, get_base_skin_id_for_chroma
+                from utils.core.utilities import is_base_skin, get_base_skin_id_for_chroma
                 chroma_id_map = self.skin_scraper.cache.chroma_id_map
                 if is_base_skin(skin_id, chroma_id_map):
                     new_base_skin_id = skin_id

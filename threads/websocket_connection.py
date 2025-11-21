@@ -18,7 +18,7 @@ import websocket  # websocket-client
 from config import WS_PING_INTERVAL_DEFAULT, WS_PING_TIMEOUT_DEFAULT, WS_RECONNECT_DELAY
 from lcu.client import LCU
 from state.shared_state import SharedState
-from utils.logging import get_logger
+from utils.core.logging import get_logger
 
 log = get_logger()
 
@@ -125,7 +125,7 @@ class WebSocketConnection:
     
     def _on_open(self, ws):
         """WebSocket connection opened"""
-        from utils.logging import log_status
+        from utils.core.logging import log_status
         
         separator = "=" * 80
         log.info(separator)

@@ -12,7 +12,7 @@ import json
 from pathlib import Path
 from typing import Dict, Optional
 
-from utils.paths import get_user_data_dir
+from utils.core.paths import get_user_data_dir
 
 
 def _historic_file_path() -> Path:

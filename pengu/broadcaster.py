@@ -11,7 +11,7 @@ import logging
 import time
 from typing import Optional
 
-from utils.utilities import get_champion_id_from_skin_id
+from utils.core.utilities import get_champion_id_from_skin_id
 
 log = logging.getLogger(__name__)
 

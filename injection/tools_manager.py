@@ -8,7 +8,7 @@ Handles CSLOL tools detection and validation
 from pathlib import Path
 from typing import Dict
 
-from utils.logging import get_logger
+from utils.core.logging import get_logger
 
 log = get_logger()
 

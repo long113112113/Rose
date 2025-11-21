@@ -10,7 +10,7 @@ from pathlib import Path
 from typing import Optional
 
 from config import get_config_file_path
-from utils.logging import get_logger
+from utils.core.logging import get_logger
 
 log = get_logger()
 

@@ -16,7 +16,7 @@ except ImportError:
     PSUTIL_AVAILABLE = False
     psutil = None
 
-from utils.logging import get_logger, log_success
+from utils.core.logging import get_logger, log_success
 from .config_manager import ConfigManager
 
 log = get_logger()

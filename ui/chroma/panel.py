@@ -7,8 +7,8 @@ Chroma Panel Manager - Coordinates chroma panel and button widgets
 
 import threading
 from typing import Callable, List, Dict
-from utils.logging import get_logger, log_event, log_action, log_success
-from utils.utilities import is_default_skin, is_owned, is_base_skin_owned
+from utils.core.logging import get_logger, log_event, log_action, log_success
+from utils.core.utilities import is_default_skin, is_owned, is_base_skin_owned
 
 log = get_logger()
 

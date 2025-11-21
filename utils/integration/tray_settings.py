@@ -18,7 +18,7 @@ except ImportError:  # pragma: no cover - optional dependency
     Image = None  # type: ignore
 
 from config import get_config_float, get_config_option, set_config_option
-from utils.admin_utils import (
+from utils.system.admin_utils import (
     is_admin,
     is_registered_for_autostart,
     register_autostart,
@@ -27,9 +27,9 @@ from utils.admin_utils import (
     show_autostart_success_dialog,
     show_message_box_threaded,
 )
-from utils.logging import get_logger
-from utils.paths import get_asset_path
-from utils.win32_base import (
+from utils.core.logging import get_logger
+from utils.core.paths import get_asset_path
+from utils.system.win32_base import (
     BS_DEFPUSHBUTTON,
     BS_PUSHBUTTON,
     MAKELPARAM,

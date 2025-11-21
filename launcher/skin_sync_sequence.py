@@ -9,8 +9,8 @@ import time
 from typing import Optional
 
 from state.app_status import AppStatus
-from utils.logging import get_logger, get_named_logger
-from utils.skin_downloader import download_skins_on_startup
+from utils.core.logging import get_logger, get_named_logger
+from utils.download.skin_downloader import download_skins_on_startup
 
 log = get_logger()
 updater_log = get_named_logger("updater", prefix="log_updater")

@@ -7,7 +7,7 @@ Handles historic mode activation and deactivation
 
 from typing import Optional
 from state.shared_state import SharedState
-from utils.logging import get_logger
+from utils.core.logging import get_logger
 
 log = get_logger()
 
@@ -33,7 +33,7 @@ class HistoricModeHandler:
         if skin_id == base_skin_id:
             # Check if there's a historic entry for this champion
             try:
-                from utils.historic import get_historic_skin_for_champion
+                from utils.core.historic import get_historic_skin_for_champion
                 historic_skin_id = get_historic_skin_for_champion(self.state.locked_champ_id)
                 
                 if historic_skin_id is not None:

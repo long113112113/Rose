@@ -10,7 +10,7 @@ from typing import Callable, Optional
 
 import requests
 
-from utils.logging import get_named_logger
+from utils.core.logging import get_named_logger
 
 updater_log = get_named_logger("updater", prefix="log_updater")
 

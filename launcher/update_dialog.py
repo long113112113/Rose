@@ -17,9 +17,9 @@ except ImportError:
     Image = None
 
 from config import APP_VERSION
-from utils.logging import get_named_logger
-from utils.paths import get_asset_path
-from utils.win32_base import (
+from utils.core.logging import get_named_logger
+from utils.core.paths import get_asset_path
+from utils.system.win32_base import (
     PBS_MARQUEE,
     PBM_SETRANGE,
     PBM_SETMARQUEE,

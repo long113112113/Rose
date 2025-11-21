@@ -13,8 +13,8 @@ import tempfile
 import requests
 from pathlib import Path
 from typing import Callable, Optional, Dict, List, Set, Tuple
-from utils.logging import get_logger
-from utils.paths import get_skins_dir
+from utils.core.logging import get_logger
+from utils.core.paths import get_skins_dir
 from config import APP_USER_AGENT, SKIN_DOWNLOAD_STREAM_TIMEOUT_S
 
 log = get_logger()
@@ -389,7 +389,7 @@ class RepoDownloader:
                     total_bytes = len(entries) or 1
                 processed_bytes = 0
 
-                from utils.paths import get_user_data_dir
+                from utils.core.paths import get_user_data_dir
                 mapping_target_dir = get_user_data_dir() / "skinid_mapping"
 
                 def update_progress(label: str):
@@ -497,7 +497,7 @@ class RepoDownloader:
                 existing_previews = list(self.target_dir.rglob("*.png"))
                 
                 # Check if skinid_mapping exists
-                from utils.paths import get_user_data_dir
+                from utils.core.paths import get_user_data_dir
                 mapping_dir = get_user_data_dir() / "skinid_mapping"
                 existing_mappings = list(mapping_dir.rglob("*.json")) if mapping_dir.exists() else []
                 

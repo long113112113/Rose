@@ -7,8 +7,8 @@ from __future__ import annotations
 
 from typing import Callable
 
-from utils.hash_updater import update_hash_files
-from utils.logging import get_logger, get_named_logger
+from utils.download.hash_updater import update_hash_files
+from utils.core.logging import get_logger, get_named_logger
 
 log = get_logger()
 updater_log = get_named_logger("updater", prefix="log_updater")

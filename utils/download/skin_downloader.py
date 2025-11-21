@@ -9,8 +9,8 @@ import time
 import requests
 from pathlib import Path
 from typing import Callable, List, Dict, Optional
-from utils.logging import get_logger
-from utils.paths import get_skins_dir
+from utils.core.logging import get_logger
+from utils.core.paths import get_skins_dir
 from config import (
     API_POLITENESS_DELAY_S, APP_USER_AGENT,
     DEFAULT_SKIN_DOWNLOAD_TIMEOUT_S, SKIN_DOWNLOAD_STREAM_TIMEOUT_S
@@ -263,7 +263,7 @@ def download_skins_on_startup(
         # Note: Tray status is now managed by AppStatus class in main.py
         # This function just downloads and returns success/failure
         
-        from utils.repo_downloader import download_skins_from_repo
+        from utils.download.repo_downloader import download_skins_from_repo
         log.info("Downloading skins from repository ZIP...")
         result = download_skins_from_repo(
             target_dir,

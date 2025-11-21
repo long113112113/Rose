@@ -7,7 +7,7 @@ Supports 3 resolutions: 1600x900, 1280x720, 1024x576
 """
 
 from typing import Dict, Tuple, Optional
-from utils.logging import get_logger
+from utils.core.logging import get_logger
 
 log = get_logger()
 
@@ -304,7 +304,7 @@ def get_current_resolution() -> Optional[Tuple[int, int]]:
         (width, height) tuple or None if League window not found
     """
     try:
-        from utils.window_utils import find_league_window_rect
+        from utils.system.window_utils import find_league_window_rect
         window_rect = find_league_window_rect()
         
         if not window_rect:

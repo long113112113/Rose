@@ -7,7 +7,7 @@ Property-based accessors for common LCU endpoints
 
 from typing import Optional
 
-from utils.logging import get_logger
+from utils.core.logging import get_logger
 
 log = get_logger()
 

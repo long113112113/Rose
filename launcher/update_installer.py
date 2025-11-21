@@ -13,7 +13,7 @@ import zipfile
 from pathlib import Path
 from typing import Callable, Optional
 
-from utils.logging import get_named_logger
+from utils.core.logging import get_named_logger
 
 updater_log = get_named_logger("updater", prefix="log_updater")
 

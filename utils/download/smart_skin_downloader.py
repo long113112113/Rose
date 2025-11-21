@@ -10,7 +10,7 @@ import time
 import requests
 from pathlib import Path
 from typing import List, Dict, Optional
-from utils.logging import get_logger
+from utils.core.logging import get_logger
 from config import (
     RATE_LIMIT_MIN_INTERVAL, RATE_LIMIT_REQUEST_TIMEOUT, RATE_LIMIT_STREAM_TIMEOUT,
     RATE_LIMIT_LOW_THRESHOLD, RATE_LIMIT_WARNING_50, RATE_LIMIT_WARNING_100,

@@ -18,8 +18,8 @@ import threading
 import time
 from typing import Callable
 
-from utils.logging import get_logger, get_named_logger
-from utils.win32_base import (
+from utils.core.logging import get_logger, get_named_logger
+from utils.system.win32_base import (
     WM_CLOSE,
     SW_SHOWNORMAL,
     user32,

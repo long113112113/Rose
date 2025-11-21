@@ -7,7 +7,7 @@ LCU Skin Scraper - Scrape skins for a specific champion from LCU
 from typing import Optional, Dict, List, Tuple
 
 from config import LCU_SKIN_SCRAPER_TIMEOUT_S, SKIN_NAME_MIN_SIMILARITY
-from utils.logging import get_logger
+from utils.core.logging import get_logger
 
 from .skin_cache import ChampionSkinCache
 
@@ -160,7 +160,7 @@ class LCUSkinScraper:
         if not use_levenshtein:
             return None
         
-        from utils.normalization import levenshtein_distance
+        from utils.core.normalization import levenshtein_distance
         
         best_match = None
         best_distance = float('inf')

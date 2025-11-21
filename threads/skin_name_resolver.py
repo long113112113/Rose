@@ -9,7 +9,7 @@ import logging
 from typing import Optional
 
 from state.shared_state import SharedState
-from utils.logging import get_logger
+from utils.core.logging import get_logger
 
 log = get_logger()
 
@@ -65,7 +65,7 @@ class SkinNameResolver:
         # Normal hovered skin
         skin_id = getattr(self.state, 'last_hovered_skin_id', None)
         if skin_id:
-            from utils.utilities import is_base_skin
+            from utils.core.utilities import is_base_skin
             chroma_id_map = self.skin_scraper.cache.chroma_id_map if self.skin_scraper and self.skin_scraper.cache else None
             
             if is_base_skin(skin_id, chroma_id_map):

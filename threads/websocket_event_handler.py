@@ -13,7 +13,7 @@ from config import INTERESTING_PHASES
 from lcu.client import LCU
 from lcu.utils import compute_locked
 from state.shared_state import SharedState
-from utils.logging import get_logger, log_status, log_event
+from utils.core.logging import get_logger, log_status, log_event
 
 log = get_logger()
 
@@ -192,7 +192,7 @@ class WebSocketEventHandler:
     
     def _handle_in_progress_entry(self):
         """Handle entering InProgress phase"""
-        from utils.logging import log_section
+        from utils.core.logging import log_section
         
         if self.state.last_hovered_skin_key:
             log_section(log, f"Game Starting - Last Detected Skin: {self.state.last_hovered_skin_key.upper()}", "🎮", {

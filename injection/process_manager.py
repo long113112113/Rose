@@ -17,7 +17,7 @@ except ImportError:
     PSUTIL_AVAILABLE = False
     psutil = None
 
-from utils.logging import get_logger
+from utils.core.logging import get_logger
 from config import (
     PROCESS_TERMINATE_TIMEOUT_S,
     PROCESS_TERMINATE_WAIT_S,

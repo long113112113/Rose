@@ -13,9 +13,9 @@ from typing import TYPE_CHECKING, Optional
 from ui.chroma.panel import get_chroma_panel
 from ui.chroma.special_cases import ChromaSpecialCases
 from ui.chroma.selection_handler import ChromaSelectionHandler
-from utils.logging import get_logger
-from utils.utilities import is_owned
-from utils.validation import validate_skin_id, validate_skin_name
+from utils.core.logging import get_logger
+from utils.core.utilities import is_owned
+from utils.core.validation import validate_skin_id, validate_skin_name
 
 log = get_logger()
 

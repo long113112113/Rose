@@ -19,7 +19,7 @@ except ImportError:
     PSUTIL_AVAILABLE = False
     psutil = None
 
-from utils.logging import get_logger, log_action, log_success, log_event
+from utils.core.logging import get_logger, log_action, log_success, log_event
 from config import (
     PROCESS_TERMINATE_TIMEOUT_S,
     PROCESS_MONITOR_SLEEP_S,

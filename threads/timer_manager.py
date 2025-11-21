@@ -13,7 +13,7 @@ from config import WS_PROBE_ITERATIONS, WS_PROBE_SLEEP_MS, TIMER_HZ_DEFAULT, FAL
 from lcu.client import LCU
 from state.shared_state import SharedState
 from threads.loadout_ticker import LoadoutTicker
-from utils.logging import get_logger, log_event
+from utils.core.logging import get_logger, log_event
 
 log = get_logger()
 
@@ -61,7 +61,7 @@ class TimerManager:
             # Update phase to FINALIZATION if we're currently in ChampSelect
             if self.state.phase == "ChampSelect":
                 if self.state.phase != "FINALIZATION":
-                    from utils.logging import log_status
+                    from utils.core.logging import log_status
                     log_status(log, "Phase", "FINALIZATION", "🎯")
                     self.state.phase = "FINALIZATION"
             

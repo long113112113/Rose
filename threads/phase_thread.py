@@ -10,7 +10,7 @@ import time
 from config import INTERESTING_PHASES, PHASE_POLL_INTERVAL_DEFAULT
 from lcu.client import LCU
 from state.shared_state import SharedState
-from utils.logging import get_logger, log_status
+from utils.core.logging import get_logger, log_status
 
 from .swiftplay_handler import SwiftplayHandler
 from .phase_handler import PhaseHandler

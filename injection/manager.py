@@ -15,7 +15,7 @@ from config import (
     INJECTION_LOCK_TIMEOUT_S,
     get_config_file_path
 )
-from utils.logging import get_logger, log_action, log_success
+from utils.core.logging import get_logger, log_action, log_success
 
 from .injector import SkinInjector
 from .game_monitor import GameMonitor

@@ -1,14 +1,15 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-Utils Package - Utility functions and helpers
+Core Utilities
 
-This package is organized into subpackages:
-- core: Core utilities (logging, paths, validation, etc.)
-- system: System/OS-specific utilities (Windows, admin, window management)
-- download: Download and network utilities (skin downloaders, hash management)
-- integration: UI/System integration (tray, Pengu Loader)
-- threading: Threading utilities
+This subpackage contains core utility functions used throughout the application:
+- logging: Logging functionality
+- paths: Path and directory utilities
+- utilities: Shared utility functions (skin/champion ID helpers)
+- validation: Input validation functions
+- normalization: Text normalization and matching
+- historic: Historic mode utilities
 """
 
 # Import paths first (doesn't depend on config)
@@ -18,7 +19,6 @@ from utils.core.paths import (
 )
 
 # Lazy imports for modules that depend on config (to avoid circular imports)
-# These will be imported on first access via __getattr__
 def __getattr__(name):
     """Lazy import for modules that may have circular dependencies"""
     if name in {
@@ -65,7 +65,7 @@ def __getattr__(name):
         )
         return locals()[name]
     
-    raise AttributeError(f"module 'utils' has no attribute '{name}'")
+    raise AttributeError(f"module 'utils.core' has no attribute '{name}'")
 
 __all__ = [
     # Paths (eagerly imported)
@@ -86,3 +86,4 @@ __all__ = [
     # Historic (lazy)
     'load_historic_map', 'get_historic_skin_for_champion', 'write_historic_entry',
 ]
+

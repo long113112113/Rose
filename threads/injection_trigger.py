@@ -13,7 +13,7 @@ from typing import Optional
 from config import BASE_SKIN_VERIFICATION_WAIT_S, LOG_SEPARATOR_WIDTH
 from lcu.client import LCU
 from state.shared_state import SharedState
-from utils.logging import get_logger, log_action
+from utils.core.logging import get_logger, log_action
 
 log = get_logger()
 
@@ -235,7 +235,7 @@ class InjectionTrigger:
                                     injected_id = int(parts[1])
                             champ_id = champ_id_for_history
                             if champ_id is not None and injected_id is not None:
-                                from utils.historic import write_historic_entry
+                                from utils.core.historic import write_historic_entry
                                 write_historic_entry(int(champ_id), int(injected_id))
                                 log.info(f"[HISTORIC] Stored last injected ID {injected_id} for champion {champ_id}")
                         except Exception as e:

@@ -7,7 +7,7 @@ Handles chroma selection callbacks and state updates
 
 from typing import Optional
 from state.shared_state import SharedState
-from utils.logging import get_logger
+from utils.core.logging import get_logger
 from ui.chroma.special_cases import ChromaSpecialCases
 
 log = get_logger()
@@ -116,7 +116,7 @@ class ChromaSelectionHandler:
         
         # Update Swiftplay tracking dictionary if in Swiftplay mode
         if self.state.is_swiftplay_mode:
-            from utils.utilities import get_champion_id_from_skin_id
+            from utils.core.utilities import get_champion_id_from_skin_id
             champion_id = get_champion_id_from_skin_id(target_skin_id)
             self.state.swiftplay_skin_tracking[champion_id] = chroma_id
             log.info(f"[CHROMA] Updated Swiftplay tracking: champion {champion_id} -> HOL chroma {chroma_id}")
@@ -153,7 +153,7 @@ class ChromaSelectionHandler:
         
         # Update Swiftplay tracking dictionary if in Swiftplay mode
         if self.state.is_swiftplay_mode and self.current_skin_id:
-            from utils.utilities import get_champion_id_from_skin_id
+            from utils.core.utilities import get_champion_id_from_skin_id
             champion_id = get_champion_id_from_skin_id(self.current_skin_id)
             self.state.swiftplay_skin_tracking[champion_id] = self.current_skin_id
             log.info(f"[CHROMA] Updated Swiftplay tracking: champion {champion_id} -> base skin {self.current_skin_id}")
@@ -170,7 +170,7 @@ class ChromaSelectionHandler:
         
         # Update Swiftplay tracking dictionary if in Swiftplay mode
         if self.state.is_swiftplay_mode:
-            from utils.utilities import get_champion_id_from_skin_id
+            from utils.core.utilities import get_champion_id_from_skin_id
             champion_id = get_champion_id_from_skin_id(chroma_id)
             self.state.swiftplay_skin_tracking[champion_id] = chroma_id
             log.info(f"[CHROMA] Updated Swiftplay tracking: champion {champion_id} -> skin {chroma_id}")

@@ -8,7 +8,7 @@ import time
 import threading
 from lcu.client import LCU
 from state.shared_state import SharedState
-from utils.logging import get_logger
+from utils.core.logging import get_logger
 from ui.chroma.selector import get_chroma_selector
 from config import CHAMP_POLL_INTERVAL
 
