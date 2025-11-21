@@ -6,7 +6,7 @@ Handles historic mode activation and deactivation
 """
 
 from typing import Optional
-from state.shared_state import SharedState
+from state import SharedState
 from utils.core.logging import get_logger
 
 log = get_logger()

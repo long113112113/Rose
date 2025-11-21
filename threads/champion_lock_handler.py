@@ -9,8 +9,7 @@ import logging
 import time
 from typing import Optional
 
-from lcu.client import LCU
-from lcu.utils import compute_locked
+from lcu import LCU, compute_locked
 from state.shared_state import SharedState
 from ui.chroma.selector import get_chroma_selector
 from utils.core.logging import get_logger, log_status, log_event

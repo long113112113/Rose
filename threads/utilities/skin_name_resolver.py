@@ -8,7 +8,7 @@ Resolves skin name for injection based on state (historic, random, or hovered)
 import logging
 from typing import Optional
 
-from state.shared_state import SharedState
+from state import SharedState
 from utils.core.logging import get_logger
 
 log = get_logger()

@@ -7,7 +7,7 @@ Handles game mode and map detection
 
 from typing import Optional
 
-from .lockfile import SWIFTPLAY_MODES
+from ..core.lockfile import SWIFTPLAY_MODES
 
 
 class LCUGameMode:

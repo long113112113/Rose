@@ -36,7 +36,7 @@ from .core.cleanup import perform_cleanup
 from .runtime.loop import run_main_loop
 
 import utils.integration.pengu_loader as pengu_loader
-from state.app_status import AppStatus
+from state import AppStatus
 from utils.core.logging import get_logger, log_success
 from utils.threading.thread_manager import create_daemon_thread
 from config import APP_VERSION, MAIN_LOOP_FORCE_QUIT_TIMEOUT_S, set_config_option

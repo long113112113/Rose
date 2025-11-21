@@ -16,7 +16,7 @@ from typing import Optional, Callable
 import websocket  # websocket-client
 
 from config import WS_PING_INTERVAL_DEFAULT, WS_PING_TIMEOUT_DEFAULT, WS_RECONNECT_DELAY
-from lcu.client import LCU
+from lcu import LCU
 from state.shared_state import SharedState
 from utils.core.logging import get_logger
 

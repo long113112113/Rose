@@ -8,7 +8,7 @@ from __future__ import annotations
 import time
 from typing import Optional
 
-from state.app_status import AppStatus
+from state import AppStatus
 from utils.core.logging import get_logger, get_named_logger
 from utils.download.skin_downloader import download_skins_on_startup
 

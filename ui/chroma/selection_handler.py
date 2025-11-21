@@ -6,7 +6,7 @@ Handles chroma selection callbacks and state updates
 """
 
 from typing import Optional
-from state.shared_state import SharedState
+from state import SharedState
 from utils.core.logging import get_logger
 from ui.chroma.special_cases import ChromaSpecialCases
 

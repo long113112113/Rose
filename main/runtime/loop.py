@@ -7,8 +7,8 @@ Main application loop
 import time
 from typing import Any
 
-from state.shared_state import SharedState
-from lcu.skin_scraper import LCUSkinScraper
+from state import SharedState
+from lcu import LCUSkinScraper
 from utils.core.logging import get_logger, log_section
 from config import MAIN_LOOP_SLEEP, MAIN_LOOP_STALL_THRESHOLD_S, CHROMA_PANEL_PROCESSING_THRESHOLD_S
 

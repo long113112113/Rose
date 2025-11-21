@@ -4,9 +4,8 @@
 LCU disconnection handler
 """
 
-from state.shared_state import SharedState
-from lcu.skin_scraper import LCUSkinScraper
-from state.app_status import AppStatus
+from state import SharedState, AppStatus
+from lcu import LCUSkinScraper
 from utils.core.logging import get_logger
 
 log = get_logger()

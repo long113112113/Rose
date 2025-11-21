@@ -11,7 +11,7 @@ import utils.integration.pengu_loader as pengu_loader
 from utils.core.logging import get_logger, log_section, log_success
 from utils.threading.thread_manager import ThreadManager
 from utils.integration.tray_manager import TrayManager
-from state.shared_state import SharedState
+from state import SharedState
 from config import THREAD_JOIN_TIMEOUT_S, THREAD_FORCE_EXIT_TIMEOUT_S
 from .lockfile import cleanup_lock_file
 from .state import get_app_state

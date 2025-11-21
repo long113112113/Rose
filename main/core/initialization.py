@@ -8,10 +8,8 @@ import ctypes
 import sys
 from typing import Optional, Tuple
 
-from lcu.client import LCU
-from lcu.skin_scraper import LCUSkinScraper
-from state.shared_state import SharedState
-from state.app_status import AppStatus
+from lcu import LCU, LCUSkinScraper
+from state import SharedState, AppStatus
 from injection import InjectionManager
 from utils.core.logging import get_logger, log_success
 from utils.system.admin_utils import ensure_admin_rights

@@ -7,8 +7,7 @@ LCU connection monitoring thread for language detection
 import time
 import threading
 from typing import Callable, Optional
-from lcu.client import LCU
-from lcu.utils import compute_locked
+from lcu import LCU, compute_locked
 from state.shared_state import SharedState
 from utils.core.logging import get_logger, log_status
 from config import LCU_MONITOR_INTERVAL

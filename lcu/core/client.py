@@ -9,10 +9,10 @@ from typing import Optional
 
 from .lcu_connection import LCUConnection
 from .lcu_api import LCUAPI
-from .lcu_properties import LCUProperties
-from .lcu_skin_selection import LCUSkinSelection
-from .lcu_game_mode import LCUGameMode
-from .lcu_swiftplay import LCUSwiftplay
+from ..features.lcu_properties import LCUProperties
+from ..features.lcu_skin_selection import LCUSkinSelection
+from ..features.lcu_game_mode import LCUGameMode
+from ..features.lcu_swiftplay import LCUSwiftplay
 
 
 class LCU:

@@ -6,7 +6,7 @@ Champion monitoring thread
 
 import time
 import threading
-from lcu.client import LCU
+from lcu import LCU
 from state.shared_state import SharedState
 from utils.core.logging import get_logger
 from ui.chroma.selector import get_chroma_selector

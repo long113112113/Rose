@@ -19,11 +19,11 @@ from utils.core.utilities import find_free_port
 
 from .websocket_server import WebSocketServer
 from .http_handler import HTTPHandler
-from .message_handler import MessageHandler
-from .skin_processor import SkinProcessor
-from .skin_mapping import SkinMapping
-from .broadcaster import Broadcaster
-from .flow_controller import FlowController
+from ..communication.message_handler import MessageHandler
+from ..processing.skin_processor import SkinProcessor
+from ..processing.skin_mapping import SkinMapping
+from ..communication.broadcaster import Broadcaster
+from ..processing.flow_controller import FlowController
 
 log = logging.getLogger(__name__)
 

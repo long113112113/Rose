@@ -11,7 +11,7 @@ import time
 from typing import Optional
 
 from config import BASE_SKIN_VERIFICATION_WAIT_S, LOG_SEPARATOR_WIDTH
-from lcu.client import LCU
+from lcu import LCU
 from state.shared_state import SharedState
 from utils.core.logging import get_logger, log_action
 

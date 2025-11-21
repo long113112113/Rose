@@ -6,7 +6,7 @@ Handles phase-specific logic and UI management
 """
 
 import logging
-from lcu.client import LCU
+from lcu import LCU
 from state.shared_state import SharedState
 from ui.chroma.selector import get_chroma_selector
 from utils.core.logging import get_logger, log_action

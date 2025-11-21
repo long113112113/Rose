@@ -6,7 +6,7 @@ Handles skin display logic and chroma UI management
 """
 
 from typing import Optional
-from state.shared_state import SharedState
+from state import SharedState
 from utils.core.logging import get_logger
 from utils.core.utilities import (
     is_owned, is_chroma_id, get_base_skin_id_for_chroma,

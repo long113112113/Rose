@@ -9,7 +9,7 @@ from typing import Optional
 
 from utils.core.logging import get_logger
 
-from .lockfile import SWIFTPLAY_MODES
+from ..core.lockfile import SWIFTPLAY_MODES
 
 log = get_logger()
 

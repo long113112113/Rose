@@ -11,7 +11,7 @@ from config import (
     WS_PING_INTERVAL_DEFAULT, WS_PING_TIMEOUT_DEFAULT, TIMER_HZ_DEFAULT,
     FALLBACK_LOADOUT_MS_DEFAULT
 )
-from lcu.client import LCU
+from lcu import LCU
 from state.shared_state import SharedState
 from utils.core.logging import get_logger
 

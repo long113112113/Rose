@@ -7,7 +7,7 @@ Manages UI component initialization, destruction, and pending operations
 
 import threading
 import time
-from state.shared_state import SharedState
+from state import SharedState
 from ui.chroma.ui import ChromaUI
 from utils.core.logging import get_logger
 

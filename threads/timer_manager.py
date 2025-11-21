@@ -10,7 +10,7 @@ import time
 from typing import Optional
 
 from config import WS_PROBE_ITERATIONS, WS_PROBE_SLEEP_MS, TIMER_HZ_DEFAULT, FALLBACK_LOADOUT_MS_DEFAULT
-from lcu.client import LCU
+from lcu import LCU
 from state.shared_state import SharedState
 from threads.loadout_ticker import LoadoutTicker
 from utils.core.logging import get_logger, log_event

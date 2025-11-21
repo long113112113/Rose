@@ -4,9 +4,7 @@
 Thread initialization and management
 """
 
-from threads.phase_thread import PhaseThread
-from threads.websocket_thread import WSEventThread
-from threads.lcu_monitor_thread import LCUMonitorThread
+from threads import PhaseThread, WSEventThread, LCUMonitorThread
 from pengu import PenguSkinMonitorThread
 from utils.threading.thread_manager import ThreadManager
 from utils.core.logging import get_logger

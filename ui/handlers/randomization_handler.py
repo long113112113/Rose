@@ -7,7 +7,7 @@ Handles random skin selection logic
 
 import random
 from typing import Optional, Tuple
-from state.shared_state import SharedState
+from state import SharedState
 from utils.core.logging import get_logger
 from utils.core.utilities import is_base_skin
 

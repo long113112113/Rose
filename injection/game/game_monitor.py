@@ -253,14 +253,34 @@ class GameMonitor:
             try:
                 game_proc = self._suspended_game_process
                 
+                # Always try to resume, even if status appears to be running
+                # The status check can be unreliable when runoverlay starts (race condition)
+                # It's safer to always call resume() if we have a suspended process reference
+                status_before = None
+                try:
+                    status_before = game_proc.status()
+                except (psutil.NoSuchProcess, AttributeError):
+                    log.debug("[monitor] Game process no longer exists")
+                    self._suspended_game_process = None
+                    self._monitor_active = False
+                    return
+                
                 # Resume until no longer suspended (handles multiple suspensions)
                 for attempt in range(1, GAME_RESUME_MAX_ATTEMPTS + 1):
                     try:
-                        status_before = game_proc.status()
-                        if status_before != psutil.STATUS_STOPPED:
-                            log.debug(f"[monitor] Game already running (status={status_before})")
-                            break
+                        current_status = game_proc.status()
                         
+                        # If already running, log but still try resume() once to be safe
+                        # This handles cases where status is misleading
+                        if current_status != psutil.STATUS_STOPPED:
+                            if attempt == 1:
+                                log.debug(f"[monitor] Game status is {current_status} (not stopped) - attempting resume anyway to be safe")
+                            else:
+                                # Already tried, status still not stopped, assume it's running
+                                log.debug(f"[monitor] Game already running (status={current_status})")
+                                break
+                        
+                        # Always call resume() - it's safe to call even if already running
                         game_proc.resume()
                         time.sleep(GAME_RESUME_VERIFICATION_WAIT_S)
                         
@@ -276,9 +296,11 @@ class GameMonitor:
                             if attempt < GAME_RESUME_MAX_ATTEMPTS:
                                 log.debug(f"[monitor] Still suspended after attempt {attempt}, retrying...")
                             else:
-                                log.error(f"[monitor] Failed to resume after {GAME_RESUME_MAX_ATTEMPTS} attempts")
+                                log.error(f"[monitor] Failed to resume after {GAME_RESUME_MAX_ATTEMPTS} attempts - game may be stuck")
+                                # Force clear reference even on failure to prevent permanent lock
+                                log.warning("[monitor] Clearing suspended process reference - auto-resume will handle if needed")
                     except psutil.NoSuchProcess:
-                        log.debug("[monitor] Game process ended")
+                        log.debug("[monitor] Game process ended during resume")
                         break
                     except Exception as e:
                         log.warning(f"[monitor] Resume attempt {attempt} error: {e}")

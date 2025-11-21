@@ -10,8 +10,7 @@ import logging
 from typing import Optional
 
 from config import INTERESTING_PHASES
-from lcu.client import LCU
-from lcu.utils import compute_locked
+from lcu import LCU, compute_locked
 from state.shared_state import SharedState
 from utils.core.logging import get_logger, log_status, log_event
 
