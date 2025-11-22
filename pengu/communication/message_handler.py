@@ -37,7 +37,7 @@ class MessageHandler:
         skin_processor,
         flow_controller,
         skin_scraper=None,
-        port: int = 3000,
+        port: int = 50000,
     ):
         """Initialize message handler
         

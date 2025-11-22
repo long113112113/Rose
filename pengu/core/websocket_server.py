@@ -38,7 +38,7 @@ class WebSocketServer:
             http_handler: Callback for handling HTTP requests
         """
         self.host = host
-        self.port = port or 3000  # Default port if not specified
+        self.port = port or 50000  # Default port if not specified (high port range like LCU)
         self.message_handler = message_handler
         self.http_handler = http_handler
         

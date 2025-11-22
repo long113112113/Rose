@@ -15,7 +15,7 @@ import logging
 import threading
 from typing import Optional
 
-from utils.core.utilities import find_free_port
+from utils.core.utilities import find_free_port, write_bridge_port, delete_bridge_port_file
 
 from .websocket_server import WebSocketServer
 from .http_handler import HTTPHandler
@@ -54,16 +54,19 @@ class PenguSkinMonitorThread(threading.Thread):
         self.injection_manager = injection_manager
         self.host = host
         
-        # Find free port if not specified
+        # Find free port if not specified (use high port range like LCU)
         if port is None:
-            free_port = find_free_port(start_port=3000)
+            free_port = find_free_port(start_port=50000)
             if free_port is None:
-                log.error("[SkinMonitor] Failed to find a free port, using default 3000")
-                self.port = 3000
+                log.error("[SkinMonitor] Failed to find a free port, using default 50000")
+                self.port = 50000
             else:
                 self.port = free_port
         else:
             self.port = port
+        
+        # Write port to file for plugin discovery
+        write_bridge_port(self.port)
 
         # Initialize modules
         self.skin_mapping = SkinMapping(shared_state)
@@ -105,6 +108,8 @@ class PenguSkinMonitorThread(threading.Thread):
     def stop(self) -> None:
         """Stop the server"""
         self.websocket_server.stop()
+        # Clean up port file on shutdown
+        delete_bridge_port_file()
 
     def force_disconnect(self) -> None:
         """

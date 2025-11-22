@@ -8,6 +8,7 @@ Contains common functions that are used across multiple modules
 
 # Standard library imports
 import socket
+from pathlib import Path
 from typing import Optional
 
 # Local imports
@@ -183,12 +184,13 @@ def is_base_skin_owned(skin_id: int, owned_skin_ids: set, chroma_id_map: Optiona
 # No longer converting to English - using LCU localized names directly
 
 
-def find_free_port(start_port: int = 3000, max_attempts: int = 100) -> Optional[int]:
+def find_free_port(start_port: int = 50000, max_attempts: int = 100) -> Optional[int]:
     """
     Find a free port starting from start_port.
+    Uses high port range (50000+) by default to avoid conflicts with common dev ports.
     
     Args:
-        start_port: The starting port number to check (default: 3000)
+        start_port: The starting port number to check (default: 50000)
         max_attempts: Maximum number of ports to try (default: 100)
         
     Returns:
@@ -207,3 +209,72 @@ def find_free_port(start_port: int = 3000, max_attempts: int = 100) -> Optional[
     
     log.warning(f"[UTILITIES] No free port found in range {start_port}-{start_port + max_attempts - 1}")
     return None
+
+
+def get_bridge_port_file() -> Path:
+    """
+    Get the path to the bridge port file.
+    
+    Returns:
+        Path to bridge_port.txt in state directory
+    """
+    from utils.core.paths import get_state_dir
+    return get_state_dir() / "bridge_port.txt"
+
+
+def write_bridge_port(port: int) -> bool:
+    """
+    Write the bridge port to a file for plugin discovery.
+    
+    Args:
+        port: The port number to write
+        
+    Returns:
+        True if successful, False otherwise
+    """
+    try:
+        port_file = get_bridge_port_file()
+        port_file.write_text(str(port), encoding='utf-8')
+        log.debug(f"[UTILITIES] Wrote bridge port {port} to {port_file}")
+        return True
+    except Exception as e:
+        log.warning(f"[UTILITIES] Failed to write bridge port: {e}")
+        return False
+
+
+def read_bridge_port() -> Optional[int]:
+    """
+    Read the bridge port from file.
+    
+    Returns:
+        Port number if found and valid, None otherwise
+    """
+    try:
+        port_file = get_bridge_port_file()
+        if not port_file.exists():
+            return None
+        port_str = port_file.read_text(encoding='utf-8').strip()
+        port = int(port_str)
+        if port > 0:
+            return port
+    except Exception as e:
+        log.debug(f"[UTILITIES] Failed to read bridge port: {e}")
+    return None
+
+
+def delete_bridge_port_file() -> bool:
+    """
+    Delete the bridge port file (e.g., on shutdown).
+    
+    Returns:
+        True if successful, False otherwise
+    """
+    try:
+        port_file = get_bridge_port_file()
+        if port_file.exists():
+            port_file.unlink()
+            log.debug(f"[UTILITIES] Deleted bridge port file {port_file}")
+        return True
+    except Exception as e:
+        log.warning(f"[UTILITIES] Failed to delete bridge port file: {e}")
+        return False

@@ -10,7 +10,7 @@ from typing import Optional
 from pathlib import Path
 from urllib.parse import urlparse, unquote
 
-from utils.core.paths import get_skins_dir, get_asset_path
+from utils.core.paths import get_skins_dir, get_asset_path, get_state_dir
 
 log = logging.getLogger(__name__)
 
@@ -43,8 +43,28 @@ class HTTPHandler:
             
             log.debug(f"[SkinMonitor] HTTP request: {path_clean}")
             
-            # Handle /port endpoint
+            # Handle /port endpoint (backward compatibility)
             if path_clean == "/port":
+                return (
+                    200,
+                    {"Content-Type": "text/plain", "Access-Control-Allow-Origin": "*"},
+                    str(self.port).encode('utf-8')
+                )
+            
+            # Handle /bridge-port endpoint (for file-based discovery)
+            if path_clean == "/bridge-port":
+                port_file = get_state_dir() / "bridge_port.txt"
+                if port_file.exists():
+                    try:
+                        port = port_file.read_text(encoding='utf-8').strip()
+                        return (
+                            200,
+                            {"Content-Type": "text/plain", "Access-Control-Allow-Origin": "*"},
+                            port.encode('utf-8')
+                        )
+                    except Exception as e:
+                        log.debug(f"[SkinMonitor] Failed to read bridge port file: {e}")
+                # Fallback to current port if file doesn't exist
                 return (
                     200,
                     {"Content-Type": "text/plain", "Access-Control-Allow-Origin": "*"},
