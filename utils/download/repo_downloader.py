@@ -973,12 +973,13 @@ class RepoDownloader:
             log.info(f"Creating ZIP from {len(downloaded_files)} downloaded files...")
             self._emit_progress(progress_end - 5, "Creating ZIP archive...")
             
-            # Create ZIP file with structure: resources/... (to match extract_skins_from_zip expectations)
+            # Create ZIP file with structure: LeagueSkins-main/resources/... (to match extract_skins_from_zip expectations)
             with zipfile.ZipFile(temp_zip_path, 'w', zipfile.ZIP_DEFLATED) as zipf:
                 for file_path in resources_local_path.rglob('*'):
                     if file_path.is_file():
-                        # Keep the resources/ prefix in the ZIP to match extract_skins_from_zip expectations
-                        arcname = file_path.relative_to(temp_dir_path)
+                        # Add LeagueSkins-main/ prefix to match extract_skins_from_zip expectations
+                        relative_path = file_path.relative_to(temp_dir_path)
+                        arcname = f"LeagueSkins-main/{relative_path}"
                         zipf.write(file_path, arcname)
             
             # Clean up temp directory
