@@ -10,6 +10,7 @@ Supports incremental updates by tracking repository changes
 import json
 import zipfile
 import tempfile
+import shutil
 import requests
 from pathlib import Path
 from typing import Callable, Optional, Dict, List, Set, Tuple
@@ -338,7 +339,7 @@ class RepoDownloader:
             log.error(f"Error saving {file_info['filename']}: {e}")
             return False, None
         
-    def download_repo_zip(self, progress_start: float = 0.0, progress_end: float = 70.0) -> Optional[Path]:
+    def download_repo_zip(self, progress_start: float = 0.0, progress_end: float = 70.0, download_label: str = "skins") -> Optional[Path]:
         """Download the entire repository as a ZIP file"""
         # GitHub's ZIP download URL format
         zip_url = f"{self.repo_url}/archive/refs/heads/main.zip"
@@ -377,7 +378,17 @@ class RepoDownloader:
             last_emit = -1
             last_reported_bytes = 0
             unknown_estimated_total = total_size if total_size else 200 * 1024 * 1024
-            self._emit_progress(progress_start, "Downloading skins...")
+            
+            # Use appropriate label based on what's being downloaded
+            # Note: We must download the full ZIP, but will only extract what's needed
+            if download_label == "resources":
+                progress_msg = "Downloading repository ZIP (will extract skin ID mapping only)..."
+            elif download_label == "both":
+                progress_msg = "Downloading repository ZIP (skins + skin ID mapping)..."
+            else:
+                progress_msg = "Downloading repository ZIP (will extract skins only)..."
+            
+            self._emit_progress(progress_start, progress_msg)
             
             # Save ZIP file
             with open(temp_zip_path, 'wb') as f:
@@ -399,7 +410,7 @@ class RepoDownloader:
                             total_mb = _format_size(total_size) if total_size else "?"
                             self._emit_progress(
                                 percent,
-                                f"Downloading skins... {downloaded_mb} / {total_mb}",
+                                f"{progress_msg} {downloaded_mb} / {total_mb}",
                             )
  
             log.info(f"Repository ZIP downloaded: {temp_zip_path}")
@@ -420,6 +431,8 @@ class RepoDownloader:
         overwrite_existing: bool = False,
         progress_start: float = 70.0,
         progress_end: float = 100.0,
+        extract_skins: bool = True,
+        extract_resources: bool = True,
     ) -> bool:
         """Extract skins, previews, and resources folder from the LeagueSkins repository ZIP"""
         try:
@@ -431,34 +444,42 @@ class RepoDownloader:
                 zip_count = 0
                 png_count = 0
                 
-                for file_info in zip_ref.filelist:
-                    # Look for files in skins/ directory, but skip the skins directory itself
-                    if (file_info.filename.startswith('LeagueSkins-main/skins/') and 
-                        file_info.filename != 'LeagueSkins-main/skins/' and
-                        not file_info.filename.endswith('/')):
-                        skins_files.append(file_info)
-                        
-                        # Count file types for accurate reporting
-                        if file_info.filename.endswith('.zip'):
-                            zip_count += 1
-                        elif file_info.filename.endswith('.png'):
-                            png_count += 1
+                if extract_skins:
+                    for file_info in zip_ref.filelist:
+                        # Look for files in skins/ directory, but skip the skins directory itself
+                        if (file_info.filename.startswith('LeagueSkins-main/skins/') and 
+                            file_info.filename != 'LeagueSkins-main/skins/' and
+                            not file_info.filename.endswith('/')):
+                            skins_files.append(file_info)
+                            
+                            # Count file types for accurate reporting
+                            if file_info.filename.endswith('.zip'):
+                                zip_count += 1
+                            elif file_info.filename.endswith('.png'):
+                                png_count += 1
                 
                 # Find all files in the resources/ directory (entire folder)
                 resources_files = []
                 resources_count = 0
                 
-                for file_info in zip_ref.filelist:
-                    # Look for files in resources/ directory (entire folder)
-                    if (file_info.filename.startswith('LeagueSkins-main/resources/') and 
-                        file_info.filename != 'LeagueSkins-main/resources/' and
-                        not file_info.filename.endswith('/')):
-                        resources_files.append(file_info)
-                        resources_count += 1
+                if extract_resources:
+                    for file_info in zip_ref.filelist:
+                        # Look for files in resources/ directory (entire folder)
+                        if (file_info.filename.startswith('LeagueSkins-main/resources/') and 
+                            file_info.filename != 'LeagueSkins-main/resources/' and
+                            not file_info.filename.endswith('/')):
+                            resources_files.append(file_info)
+                            resources_count += 1
                 
-                if not skins_files:
-                    log.error("No skins folder found in repository ZIP")
+                if not skins_files and not resources_files:
+                    log.error("No skins or resources folder found in repository ZIP")
                     return False
+                
+                if extract_skins and not skins_files:
+                    log.warning("No skins folder found in repository ZIP, but skins extraction was requested")
+                
+                if extract_resources and not resources_files:
+                    log.warning("No resources folder found in repository ZIP, but resources extraction was requested")
                 
                 log.info(f"Found {zip_count} skin .zip files, {png_count} preview .png files, and {resources_count} resource files in repository")
                 
@@ -587,10 +608,17 @@ class RepoDownloader:
                 self._emit_progress(100, "Skins and skin ID mapping already up to date")
                 return True
             
-            # If resources changed, we need to download ZIP to extract resources
-            if resources_changed:
-                log.info("Resources folder changed, will download ZIP to update resources")
+            # If only resources changed (and skins didn't), download ZIP but only extract resources
+            if resources_changed and not skins_changed:
+                log.info("Only resources folder changed, will download ZIP to update resources only")
                 self._emit_progress(10, "Skin ID mapping needs update, downloading...")
+                # Download ZIP but only extract resources, skip skins
+                return self._download_and_extract_resources_only(force_update=force_update)
+            
+            # If both changed, use normal flow (download ZIP and extract both)
+            if resources_changed and skins_changed:
+                log.info("Both skins and resources folders changed, will download ZIP to update both")
+                self._emit_progress(10, "Skins and skin ID mapping need update, downloading...")
                 return self.download_and_extract_skins(force_update=force_update)
             
             # Only skins changed, continue with incremental update
@@ -750,36 +778,65 @@ class RepoDownloader:
                     # Still check if resources need updating
                     self._emit_progress(2, "Checking skin ID mapping...")
                     resources_need_update = self.has_resources_changed()
-                    if not resources_need_update:
+                    skins_need_update = self.has_repository_changed()
+                    
+                    if not resources_need_update and not skins_need_update:
                         log.info(f"Found {len(existing_skins)} existing skins and resources are up to date, skipping download")
                         self._emit_progress(100, "Skins and skin ID mapping already up to date")
                         return True
-                    else:
+                    elif resources_need_update and not skins_need_update:
+                        # Only resources need updating, use resources-only method
                         log.info(f"Found {len(existing_skins)} existing skins, but resources need updating")
                         self._emit_progress(5, "Skin ID mapping needs update, downloading...")
+                        return self._download_and_extract_resources_only(force_update=force_update)
+                    else:
+                        log.info(f"Found {len(existing_skins)} existing skins, but updates needed")
             
             # Check if resources need updating (separate from skins)
             if not force_update:
                 self._emit_progress(2, "Checking skin ID mapping...")
             resources_need_update = force_update or self.has_resources_changed()
-            if resources_need_update:
+            skins_need_update = force_update or self.has_repository_changed()
+            
+            # If skins exist (files are there) but only resources need updating, use resources-only method
+            existing_skins = list(self.target_dir.rglob("*.zip")) if self.target_dir.exists() else []
+            if existing_skins and resources_need_update and not skins_need_update:
+                # Only resources need updating, use resources-only method
+                log.info("Only resources folder needs updating (skins already exist)")
+                return self._download_and_extract_resources_only(force_update=force_update)
+            elif resources_need_update:
                 log.info("Resources folder needs updating")
             else:
                 log.info("Resources folder is up to date")
             
+            # Determine what needs to be extracted
+            # Check if skins need updating
+            skins_need_update = force_update or self.has_repository_changed()
+            # Check if resources need updating (already checked above)
+            
+            # Determine download label for progress messages
+            if skins_need_update and resources_need_update:
+                download_label = "both"
+            elif resources_need_update:
+                download_label = "resources"
+            else:
+                download_label = "skins"
+            
             # Download repository ZIP
-            zip_path = self.download_repo_zip(progress_start=5.0, progress_end=70.0)
+            zip_path = self.download_repo_zip(progress_start=5.0, progress_end=70.0, download_label=download_label)
             if not zip_path:
                 self._emit_progress(5, "Failed to start download")
                 return False
             
             try:
-                # Extract skins from ZIP
+                # Extract from ZIP (only what needs updating)
                 success = self.extract_skins_from_zip(
                     zip_path,
                     overwrite_existing=force_update,
                     progress_start=70.0,
                     progress_end=100.0,
+                    extract_skins=skins_need_update,
+                    extract_resources=resources_need_update,
                 )
                 
                 # Save state after successful full download
@@ -812,6 +869,185 @@ class RepoDownloader:
             self._emit_progress(100, f"Failed: {e}")
             return False
     
+    def download_resources_folder_only(self, progress_start: float = 0.0, progress_end: float = 70.0) -> Optional[Path]:
+        """Download only the resources folder using GitHub Contents API (more efficient than full ZIP)"""
+        try:
+            log.info("Downloading resources folder using GitHub Contents API...")
+            self._emit_progress(progress_start, "Downloading skin ID mapping folder...")
+            
+            # Create temporary directory for resources
+            temp_dir = tempfile.mkdtemp()
+            temp_dir_path = Path(temp_dir)
+            resources_local_path = temp_dir_path / "resources"
+            resources_local_path.mkdir(parents=True, exist_ok=True)
+            
+            downloaded_files = []
+            
+            def download_folder_contents(path: str, local_path: Path, current_progress: float, max_progress: float) -> Tuple[bool, float]:
+                """Recursively download folder contents from GitHub"""
+                try:
+                    api_url = f"{self.api_base}/contents/{path}"
+                    response = self.session.get(api_url, timeout=SKIN_DOWNLOAD_STREAM_TIMEOUT_S)
+                    response.raise_for_status()
+                    contents = response.json()
+                    
+                    if not isinstance(contents, list):
+                        log.error(f"Unexpected response format for {path}")
+                        return False, current_progress
+                    
+                    total_items = len(contents)
+                    if total_items == 0:
+                        return True, current_progress
+                    
+                    progress_per_item = (max_progress - current_progress) / total_items
+                    
+                    for idx, item in enumerate(contents):
+                        if item['type'] == 'file':
+                            # Download file
+                            file_path = local_path / item['name']
+                            file_path.parent.mkdir(parents=True, exist_ok=True)
+                            
+                            download_response = self.session.get(
+                                item['download_url'], 
+                                stream=True, 
+                                timeout=SKIN_DOWNLOAD_STREAM_TIMEOUT_S
+                            )
+                            download_response.raise_for_status()
+                            
+                            with open(file_path, 'wb') as f:
+                                for chunk in download_response.iter_content(chunk_size=8192):
+                                    if chunk:
+                                        f.write(chunk)
+                            
+                            downloaded_files.append(file_path)
+                            log.debug(f"Downloaded {item['path']}")
+                            
+                            # Update progress
+                            item_progress = current_progress + (idx + 1) * progress_per_item
+                            self._emit_progress(
+                                item_progress,
+                                f"Downloading skin ID mapping... ({len(downloaded_files)} files)"
+                            )
+                            
+                        elif item['type'] == 'dir':
+                            # Recursively download subdirectory
+                            subdir_path = local_path / item['name']
+                            subdir_progress_start = current_progress + (idx * progress_per_item)
+                            subdir_progress_end = current_progress + ((idx + 1) * progress_per_item)
+                            success, new_progress = download_folder_contents(
+                                item['path'], 
+                                subdir_path, 
+                                subdir_progress_start,
+                                subdir_progress_end
+                            )
+                            if not success:
+                                return False, new_progress
+                            current_progress = new_progress
+                    
+                    return True, max_progress
+                    
+                except requests.RequestException as e:
+                    log.error(f"Failed to download folder contents for {path}: {e}")
+                    return False, current_progress
+                except Exception as e:
+                    log.error(f"Error downloading folder contents for {path}: {e}")
+                    return False, current_progress
+            
+            # Download resources folder recursively
+            success, final_progress = download_folder_contents("resources", resources_local_path, progress_start, progress_end)
+            if not success:
+                log.error("Failed to download resources folder")
+                shutil.rmtree(temp_dir_path, ignore_errors=True)
+                return None
+            
+            if not downloaded_files:
+                log.warning("No files downloaded from resources folder")
+                shutil.rmtree(temp_dir_path, ignore_errors=True)
+                return None
+            
+            # Create ZIP from downloaded folder
+            temp_zip = tempfile.NamedTemporaryFile(delete=False, suffix='.zip')
+            temp_zip_path = Path(temp_zip.name)
+            temp_zip.close()
+            
+            log.info(f"Creating ZIP from {len(downloaded_files)} downloaded files...")
+            self._emit_progress(progress_end - 5, "Creating ZIP archive...")
+            
+            # Create ZIP file with structure: resources/... (to match extract_skins_from_zip expectations)
+            with zipfile.ZipFile(temp_zip_path, 'w', zipfile.ZIP_DEFLATED) as zipf:
+                for file_path in resources_local_path.rglob('*'):
+                    if file_path.is_file():
+                        # Keep the resources/ prefix in the ZIP to match extract_skins_from_zip expectations
+                        arcname = file_path.relative_to(temp_dir_path)
+                        zipf.write(file_path, arcname)
+            
+            # Clean up temp directory
+            shutil.rmtree(temp_dir_path, ignore_errors=True)
+            
+            log.info(f"Resources folder downloaded and zipped: {temp_zip_path} ({len(downloaded_files)} files)")
+            self._emit_progress(progress_end, "Download complete")
+            return temp_zip_path
+            
+        except Exception as e:
+            log.error(f"Failed to download resources folder via GitHub API: {e}")
+            # Clean up on error
+            if 'temp_dir_path' in locals():
+                shutil.rmtree(temp_dir_path, ignore_errors=True)
+            return None
+    
+    def _download_and_extract_resources_only(self, force_update: bool = False) -> bool:
+        """Download resources folder only (using GitHub API) and extract"""
+        try:
+            self._emit_progress(10, "Preparing download...")
+            
+            # Download resources folder using GitHub Contents API (more efficient than full ZIP)
+            zip_path = self.download_resources_folder_only(progress_start=10.0, progress_end=70.0)
+            if not zip_path:
+                log.warning("Failed to download resources via GitHub API, falling back to full ZIP")
+                # Fallback to full ZIP if API method fails
+                zip_path = self.download_repo_zip(progress_start=10.0, progress_end=70.0, download_label="resources")
+                if not zip_path:
+                    self._emit_progress(10, "Failed to start download")
+                    return False
+            
+            try:
+                # Extract only resources from ZIP (skip skins)
+                success = self.extract_skins_from_zip(
+                    zip_path,
+                    overwrite_existing=force_update,
+                    progress_start=70.0,
+                    progress_end=100.0,
+                    extract_skins=False,  # Skip skins
+                    extract_resources=True,  # Only extract resources
+                )
+                
+                # Save resources state after successful extraction
+                if success:
+                    resources_state = self.get_resources_state()
+                    if resources_state and not resources_state.get('rate_limited'):
+                        resources_state['last_checked'] = resources_state.get('last_commit_date')
+                        self.save_resources_state(resources_state)
+                
+                if success:
+                    self._emit_progress(100, "Skin ID mapping ready")
+                    return True
+                self._emit_progress(100, "Extraction failed")
+                return False
+                
+            finally:
+                # Clean up temporary ZIP file
+                try:
+                    zip_path.unlink()
+                    log.debug("Cleaned up temporary ZIP file")
+                except (OSError, FileNotFoundError) as e:
+                    log.debug(f"Could not remove temporary ZIP file: {e}")
+                except Exception as e:
+                    log.debug(f"Unexpected error cleaning up ZIP file: {e}")
+            
+        except Exception as e:
+            log.error(f"Failed to download and extract resources: {e}")
+            self._emit_progress(100, f"Failed: {e}")
+            return False
     
     def get_skin_stats(self) -> dict:
         """Get statistics about downloaded skins (total IDs per champion)"""
