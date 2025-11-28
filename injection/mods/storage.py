@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 """
 Mod storage service
-Handles mods baked under mods/skins/{skin_id}
+Handles mods organized by category: skins, maps, fonts, announcers
 """
 
 from __future__ import annotations
@@ -34,11 +34,18 @@ class ModStorageService:
     """Service exposing the on-disk mods hierarchy."""
 
     CATEGORY_SKINS = "skins"
+    CATEGORY_MAPS = "maps"
+    CATEGORY_FONTS = "fonts"
+    CATEGORY_ANNOUNCERS = "announcers"
 
     def __init__(self, mods_root: Optional[Path] = None):
         self.mods_root = mods_root or (get_user_data_dir() / "mods")
         self.mods_root.mkdir(parents=True, exist_ok=True)
+        # Create all mod category folders
         (self.mods_root / self.CATEGORY_SKINS).mkdir(parents=True, exist_ok=True)
+        (self.mods_root / self.CATEGORY_MAPS).mkdir(parents=True, exist_ok=True)
+        (self.mods_root / self.CATEGORY_FONTS).mkdir(parents=True, exist_ok=True)
+        (self.mods_root / self.CATEGORY_ANNOUNCERS).mkdir(parents=True, exist_ok=True)
 
     @property
     def skins_dir(self) -> Path:
