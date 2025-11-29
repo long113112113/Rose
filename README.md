@@ -4,7 +4,7 @@
 
   <img src="./assets/icon.ico" alt="Rose Icon" width="128" height="128">
 
-[![Installer](https://img.shields.io/badge/Installer-Windows-228B22)](https://github.com/Alban1911/Rose/releases/latest) [![Ko-Fi](https://img.shields.io/badge/KoFi-Donate-F16061?logo=ko-fi&logoColor=white)](https://ko-fi.com/roseapp) [![Discord](https://img.shields.io/discord/1426680928759189545?color=228B22&logo=discord&logoColor=white&label=Discord)](https://discord.com/invite/cDepnwVS8Z)  [![License](https://img.shields.io/badge/License-Open%20Source-F16061)](LICENSE)
+[![Installer](https://img.shields.io/badge/Installer-Windows-32A832)](https://github.com/Alban1911/Rose/releases/latest) [![Ko-Fi](https://img.shields.io/badge/KoFi-Donate-C03030?logo=ko-fi&logoColor=white)](https://ko-fi.com/roseapp) [![Discord](https://img.shields.io/discord/1426680928759189545?color=32A832&logo=discord&logoColor=white&label=Discord)](https://discord.com/invite/cDepnwVS8Z)  [![License](https://img.shields.io/badge/License-Open%20Source-C03030)](LICENSE)
 
 ### **✅ FULLY COMPATIBLE WITH LATEST VANGUARD UPDATE ✅**
 
