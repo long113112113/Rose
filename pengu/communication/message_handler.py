@@ -123,6 +123,12 @@ class MessageHandler:
             self._handle_open_pengu_loader_ui(payload)
         elif payload_type == "settings-save":
             self._handle_settings_save(payload)
+        elif payload_type == "add-custom-mods-category-selected":
+            self._handle_add_custom_mods_category_selected(payload)
+        elif payload_type == "add-custom-mods-champion-selected":
+            self._handle_add_custom_mods_champion_selected(payload)
+        elif payload_type == "add-custom-mods-skin-selected":
+            self._handle_add_custom_mods_skin_selected(payload)
         elif payload.get("skin"):
             # Handle skin detection message
             self._handle_skin_detection(payload)
@@ -1138,4 +1144,271 @@ class MessageHandler:
         """Send settings save error response"""
         payload = {"type": "settings-saved", "success": False, "error": error}
         self._send_response(json.dumps(payload))
+    
+    def _handle_add_custom_mods_category_selected(self, payload: dict) -> None:
+        """Handle category selection for custom mods"""
+        try:
+            category = payload.get("category")
+            if category not in {self.mod_storage.CATEGORY_MAPS, self.mod_storage.CATEGORY_FONTS, 
+                               self.mod_storage.CATEGORY_ANNOUNCERS, self.mod_storage.CATEGORY_OTHERS}:
+                log.warning(f"[SkinMonitor] Invalid category: {category}")
+                return
+            
+            category_folder = self.mod_storage.mods_root / category
+            category_folder.mkdir(parents=True, exist_ok=True)
+            
+            if sys.platform == "win32":
+                os.startfile(str(category_folder))
+            else:
+                subprocess.Popen(["xdg-open" if os.name != "nt" else "explorer", str(category_folder)])
+            
+            log.info(f"[SkinMonitor] Opened {category} folder: {category_folder}")
+            
+            response_payload = {
+                "type": "folder-opened-response",
+                "success": True,
+                "path": str(category_folder),
+            }
+            self._send_response(json.dumps(response_payload))
+        except Exception as e:
+            log.error(f"[SkinMonitor] Failed to open {category} folder: {e}")
+            response_payload = {
+                "type": "folder-opened-response",
+                "success": False,
+                "error": str(e),
+            }
+            self._send_response(json.dumps(response_payload))
+    
+    def _handle_add_custom_mods_champion_selected(self, payload: dict) -> None:
+        """Handle champion list request for custom mods"""
+        try:
+            action = payload.get("action")
+            if action != "list":
+                return
+            
+            # Check if LCU is available
+            if not self.skin_scraper or not self.skin_scraper.lcu or not self.skin_scraper.lcu.ok:
+                response_payload = {
+                    "type": "champions-list-response",
+                    "champions": [],
+                    "error": "LCU is not available. Please ensure League of Legends client is running.",
+                }
+                self._send_response(json.dumps(response_payload))
+                return
+            
+            # Try to fetch champions list
+            # First try the champions.json endpoint
+            champions_data = self.skin_scraper.lcu.get("/lol-game-data/assets/v1/champions.json", timeout=5.0)
+            
+            champions = []
+            if champions_data and isinstance(champions_data, dict):
+                # If it's a dict, it might have champions as values
+                if "champions" in champions_data:
+                    champions_data = champions_data["champions"]
+                
+                # If it's still a dict, iterate over values
+                if isinstance(champions_data, dict):
+                    for champ_id_str, champ_data in champions_data.items():
+                        try:
+                            champ_id = int(champ_id_str)
+                            champ_name = champ_data.get("name", f"Champion {champ_id}")
+                            champions.append({"id": champ_id, "name": champ_name})
+                        except (ValueError, TypeError):
+                            continue
+                elif isinstance(champions_data, list):
+                    # If it's a list, iterate over it
+                    for champ_data in champions_data:
+                        try:
+                            champ_id = champ_data.get("id") or champ_data.get("championId")
+                            champ_name = champ_data.get("name", f"Champion {champ_id}")
+                            if champ_id:
+                                champions.append({"id": int(champ_id), "name": champ_name})
+                        except (ValueError, TypeError, AttributeError):
+                            continue
+            
+            # If we didn't get champions, try alternative approach
+            # We could iterate through known champion IDs, but that's not ideal
+            # For now, return what we have or an error
+            if not champions:
+                # Try to get owned champions as fallback
+                owned_champions = self.skin_scraper.lcu.get("/lol-champions/v1/owned-champions-minimal", timeout=5.0)
+                if owned_champions and isinstance(owned_champions, list):
+                    for champ_data in owned_champions:
+                        try:
+                            champ_id = champ_data.get("id") or champ_data.get("championId")
+                            champ_name = champ_data.get("name", f"Champion {champ_id}")
+                            if champ_id:
+                                champions.append({"id": int(champ_id), "name": champ_name})
+                        except (ValueError, TypeError, AttributeError):
+                            continue
+            
+            # Sort champions by name
+            champions.sort(key=lambda x: x["name"])
+            
+            response_payload = {
+                "type": "champions-list-response",
+                "champions": champions,
+            }
+            self._send_response(json.dumps(response_payload))
+            log.info(f"[SkinMonitor] Sent champions list: {len(champions)} champions")
+        except Exception as e:
+            log.error(f"[SkinMonitor] Failed to fetch champions list: {e}")
+            response_payload = {
+                "type": "champions-list-response",
+                "champions": [],
+                "error": f"Failed to fetch champions: {str(e)}",
+            }
+            self._send_response(json.dumps(response_payload))
+    
+    def _handle_add_custom_mods_skin_selected(self, payload: dict) -> None:
+        """Handle skin selection for custom mods"""
+        try:
+            action = payload.get("action")
+            champion_id = payload.get("championId")
+            
+            if action == "list":
+                # Return skins list for champion
+                if not champion_id:
+                    response_payload = {
+                        "type": "champion-skins-response",
+                        "championId": None,
+                        "skins": [],
+                        "error": "Champion ID is required",
+                    }
+                    self._send_response(json.dumps(response_payload))
+                    return
+                
+                # Check if LCU is available
+                if not self.skin_scraper or not self.skin_scraper.lcu or not self.skin_scraper.lcu.ok:
+                    response_payload = {
+                        "type": "champion-skins-response",
+                        "championId": champion_id,
+                        "skins": [],
+                        "error": "LCU is not available. Please ensure League of Legends client is running.",
+                    }
+                    self._send_response(json.dumps(response_payload))
+                    return
+                
+                # Fetch champion data
+                champion_data = self.skin_scraper.lcu.get(
+                    f"/lol-game-data/assets/v1/champions/{champion_id}.json",
+                    timeout=5.0
+                )
+                
+                skins = []
+                champion_name = None
+                
+                if champion_data and isinstance(champion_data, dict):
+                    champion_name = champion_data.get("name", f"Champion {champion_id}")
+                    raw_skins = champion_data.get("skins", [])
+                    
+                    for skin in raw_skins:
+                        try:
+                            skin_id = skin.get("id")
+                            if not skin_id:
+                                # Calculate skin ID: champion_id * 1000 + skin_index
+                                skin_index = skin.get("num", 0)
+                                skin_id = int(champion_id) * 1000 + int(skin_index)
+                            
+                            skin_name = skin.get("name", f"Skin {skin_id}")
+                            skins.append({
+                                "id": skin_id,
+                                "skinId": skin_id,
+                                "name": skin_name,
+                            })
+                        except (ValueError, TypeError, AttributeError):
+                            continue
+                
+                # Sort skins by ID
+                skins.sort(key=lambda x: x["skinId"])
+                
+                response_payload = {
+                    "type": "champion-skins-response",
+                    "championId": champion_id,
+                    "championName": champion_name,
+                    "skins": skins,
+                }
+                self._send_response(json.dumps(response_payload))
+                log.info(f"[SkinMonitor] Sent skins list for champion {champion_id}: {len(skins)} skins")
+            
+            elif action == "create":
+                # Create folder and open
+                champion_id = payload.get("championId")
+                skin_id = payload.get("skinId")
+                
+                if not champion_id or not skin_id:
+                    response_payload = {
+                        "type": "folder-opened-response",
+                        "success": False,
+                        "error": "Champion ID and Skin ID are required",
+                    }
+                    self._send_response(json.dumps(response_payload))
+                    return
+                
+                # Create skin folder
+                skin_folder = self.mod_storage.get_skin_dir(skin_id)
+                skin_folder.mkdir(parents=True, exist_ok=True)
+                
+                # Open folder
+                if sys.platform == "win32":
+                    os.startfile(str(skin_folder))
+                else:
+                    subprocess.Popen(["xdg-open" if os.name != "nt" else "explorer", str(skin_folder)])
+                
+                log.info(f"[SkinMonitor] Created and opened skin folder: {skin_folder}")
+                
+                # Schedule folder cleanup check after 8 seconds
+                import threading
+                def check_and_cleanup():
+                    time.sleep(8)
+                    try:
+                        if skin_folder.exists() and skin_folder.is_dir():
+                            # Check if folder is empty
+                            try:
+                                items = list(skin_folder.iterdir())
+                                if len(items) == 0:
+                                    # Folder is empty, delete it
+                                    skin_folder.rmdir()
+                                    log.info(f"[SkinMonitor] Cleaned up empty skin folder: {skin_folder}")
+                                    
+                                    # Check if parent skins directory is also empty
+                                    skins_dir = skin_folder.parent
+                                    if skins_dir.exists() and skins_dir.is_dir():
+                                        try:
+                                            skins_items = list(skins_dir.iterdir())
+                                            if len(skins_items) == 0:
+                                                skins_dir.rmdir()
+                                                log.info(f"[SkinMonitor] Cleaned up empty skins directory: {skins_dir}")
+                                        except Exception:
+                                            pass
+                                else:
+                                    log.info(f"[SkinMonitor] Skin folder contains {len(items)} items, keeping folder")
+                            except Exception as e:
+                                log.debug(f"[SkinMonitor] Error checking folder contents: {e}")
+                    except Exception as e:
+                        log.debug(f"[SkinMonitor] Error during folder cleanup: {e}")
+                
+                cleanup_thread = threading.Thread(target=check_and_cleanup, daemon=True)
+                cleanup_thread.start()
+                
+                response_payload = {
+                    "type": "folder-opened-response",
+                    "success": True,
+                    "path": str(skin_folder),
+                }
+                self._send_response(json.dumps(response_payload))
+        except Exception as e:
+            log.error(f"[SkinMonitor] Failed to handle skin selection: {e}")
+            import traceback
+            log.debug(f"[SkinMonitor] Traceback: {traceback.format_exc()}")
+            
+            response_payload = {
+                "type": "folder-opened-response" if action == "create" else "champion-skins-response",
+                "success": False,
+                "error": str(e),
+            }
+            if action == "list":
+                response_payload["championId"] = champion_id
+                response_payload["skins"] = []
+            self._send_response(json.dumps(response_payload))
 
