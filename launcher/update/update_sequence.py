@@ -78,6 +78,11 @@ class UpdateSequence:
         # We only update it after a successful update installation
         installed_version = config.get("General", "installed_version", fallback=APP_VERSION)
         
+        # Skip updates for test versions (e.g., version 999)
+        if installed_version == "999":
+            status_callback("Update skipped (test version)")
+            return False
+        
         if remote_version and installed_version == remote_version:
             status_callback("Launcher is already up to date")
             return False
