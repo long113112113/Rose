@@ -110,18 +110,181 @@ class InjectionTrigger:
             historic_custom_mod_path = None
             if getattr(self.state, 'historic_mode_active', False) and getattr(self.state, 'historic_skin_id', None):
                 from utils.core.historic import is_custom_mod_path, get_custom_mod_path
+                from pathlib import Path
                 hist_value = self.state.historic_skin_id
                 if is_custom_mod_path(hist_value):
                     historic_custom_mod_path = get_custom_mod_path(hist_value)
                     # Try to find and select the custom mod from historic
                     if not selected_custom_mod and historic_custom_mod_path:
                         try:
-                            from pengu.communication.message_handler import MessageHandler
-                            # We need mod_storage to find the mod - this will be handled by the frontend
-                            # For now, we'll let the injection proceed and the mod will be auto-selected via frontend
-                            log.info(f"[HISTORIC] Historic custom mod path detected: {historic_custom_mod_path}")
+                            from injection.mods.storage import ModStorageService
+                            mod_storage = ModStorageService()
+                            
+                            # Extract skin ID from mod path (format: skins/{skin_id}/{mod_name})
+                            path_parts = historic_custom_mod_path.replace("\\", "/").split("/")
+                            if len(path_parts) >= 2 and path_parts[0] == "skins":
+                                historic_skin_id = int(path_parts[1])
+                                
+                                # Find the mod in storage
+                                entries = mod_storage.list_mods_for_skin(historic_skin_id)
+                                selected_mod_entry = None
+                                for entry in entries:
+                                    # Match by relative path
+                                    relative_path = str(entry.path.relative_to(mod_storage.mods_root)).replace("\\", "/")
+                                    if relative_path == historic_custom_mod_path:
+                                        selected_mod_entry = entry
+                                        break
+                                
+                                if selected_mod_entry:
+                                    # Determine mod folder name
+                                    mod_source = Path(selected_mod_entry.path)
+                                    if mod_source.is_dir():
+                                        mod_folder_name = mod_source.name
+                                    elif mod_source.is_file() and mod_source.suffix.lower() in {".zip", ".fantome"}:
+                                        mod_folder_name = mod_source.stem
+                                    else:
+                                        mod_folder_name = mod_source.stem
+                                    
+                                    # Get champion ID from skin ID
+                                    from utils.core.utilities import get_champion_id_from_skin_id
+                                    champion_id = get_champion_id_from_skin_id(historic_skin_id)
+                                    
+                                    # Create selected_custom_mod dict (similar to _handle_select_skin_mod)
+                                    self.state.selected_custom_mod = {
+                                        "skin_id": historic_skin_id,
+                                        "champion_id": champion_id,
+                                        "mod_name": selected_mod_entry.mod_name,
+                                        "mod_path": str(selected_mod_entry.path),
+                                        "mod_folder_name": mod_folder_name,
+                                        "relative_path": historic_custom_mod_path,
+                                    }
+                                    
+                                    # Update selected_custom_mod reference for this function
+                                    selected_custom_mod = self.state.selected_custom_mod
+                                    
+                                    log.info(f"[HISTORIC] Auto-selected historic custom mod: {selected_mod_entry.mod_name} (skin {historic_skin_id})")
+                                else:
+                                    log.warning(f"[HISTORIC] Historic custom mod not found in storage: {historic_custom_mod_path}")
+                            else:
+                                log.warning(f"[HISTORIC] Invalid mod path format: {historic_custom_mod_path}")
                         except Exception as e:
-                            log.debug(f"[HISTORIC] Failed to handle historic custom mod: {e}")
+                            log.warning(f"[HISTORIC] Failed to auto-select historic custom mod: {e}")
+                            import traceback
+                            log.debug(f"[HISTORIC] Traceback: {traceback.format_exc()}")
+            
+            # Auto-select historic mods (map, font, announcer, other) if not already selected
+            if getattr(self.state, 'historic_mode_active', False):
+                try:
+                    from utils.core.mod_historic import load_mod_historic
+                    from injection.mods.storage import ModStorageService
+                    import shutil
+                    import zipfile
+                    
+                    mod_storage = ModStorageService()
+                    historic_mods = load_mod_historic()
+                    
+                    # Helper function to auto-select a historic mod
+                    def auto_select_historic_mod(mod_type: str, category_attr: str):
+                        """Auto-select a historic mod by type"""
+                        if not self.injection_manager:
+                            return
+                        
+                        injector = self.injection_manager.injector
+                        if not injector:
+                            return
+                        
+                        historic_path = historic_mods.get(mod_type)
+                        if not historic_path:
+                            return
+                        
+                        # Check if already selected
+                        selected_attr = f'selected_{mod_type}_mod'
+                        if getattr(self.state, selected_attr, None):
+                            return
+                        
+                        try:
+                            # Get mods for this category
+                            category = getattr(mod_storage, category_attr)
+                            entries = mod_storage.list_mods_for_category(category)
+                            
+                            # Find the mod by matching relative path
+                            selected_mod_entry = None
+                            for entry_dict in entries:
+                                entry_id = entry_dict.get("id") or ""
+                                if entry_id.replace("\\", "/") == historic_path.replace("\\", "/"):
+                                    # Found the mod - construct full path
+                                    entry_path_str = entry_dict.get("path", "").replace("/", "\\")
+                                    mod_path = mod_storage.mods_root / entry_path_str
+                                    selected_mod_entry = type('ModEntry', (), {
+                                        'mod_name': entry_dict.get("name", ""),
+                                        'path': mod_path
+                                    })()
+                                    break
+                            
+                            if not selected_mod_entry:
+                                log.debug(f"[HISTORIC] Historic {mod_type} mod not found in storage: {historic_path}")
+                                return
+                            
+                            mod_source = Path(selected_mod_entry.path)
+                            if not mod_source.exists():
+                                log.warning(f"[HISTORIC] Historic {mod_type} mod file not found: {mod_source}")
+                                return
+                            
+                            # Determine mod folder name
+                            if mod_source.is_dir():
+                                mod_folder_name = mod_source.name
+                            elif mod_source.is_file() and mod_source.suffix.lower() in {".zip", ".fantome"}:
+                                mod_folder_name = mod_source.stem
+                            else:
+                                mod_folder_name = mod_source.stem
+                            
+                            # Extract/copy mod to injection mods directory
+                            if mod_source.is_dir():
+                                mod_dest = injector.mods_dir / mod_source.name
+                                if mod_dest.exists():
+                                    shutil.rmtree(mod_dest, ignore_errors=True)
+                                shutil.copytree(mod_source, mod_dest, dirs_exist_ok=True)
+                                log.info(f"[HISTORIC] Copied {mod_type} mod directory to: {mod_dest}")
+                            elif mod_source.is_file() and mod_source.suffix.lower() in {".zip", ".fantome"}:
+                                mod_dest = injector.mods_dir / mod_source.stem
+                                if mod_dest.exists():
+                                    shutil.rmtree(mod_dest, ignore_errors=True)
+                                mod_dest.mkdir(parents=True, exist_ok=True)
+                                with zipfile.ZipFile(mod_source, 'r') as zip_ref:
+                                    zip_ref.extractall(mod_dest)
+                                file_type = "ZIP" if mod_source.suffix.lower() == ".zip" else "FANTOME"
+                                log.info(f"[HISTORIC] Extracted {file_type} {mod_type} mod to: {mod_dest}")
+                            else:
+                                mod_dest = injector.mods_dir / mod_folder_name
+                                if mod_dest.exists():
+                                    shutil.rmtree(mod_dest, ignore_errors=True)
+                                mod_dest.mkdir(parents=True, exist_ok=True)
+                                shutil.copy2(mod_source, mod_dest / mod_source.name)
+                                log.info(f"[HISTORIC] Copied {mod_type} mod file to folder: {mod_dest}")
+                            
+                            # Store selected mod in shared state
+                            setattr(self.state, selected_attr, {
+                                "mod_name": selected_mod_entry.mod_name,
+                                "mod_path": str(selected_mod_entry.path),
+                                "mod_folder_name": mod_folder_name,
+                                "relative_path": historic_path,
+                            })
+                            
+                            log.info(f"[HISTORIC] Auto-selected historic {mod_type} mod: {selected_mod_entry.mod_name}")
+                        except Exception as e:
+                            log.warning(f"[HISTORIC] Failed to auto-select historic {mod_type} mod: {e}")
+                            import traceback
+                            log.debug(f"[HISTORIC] Traceback: {traceback.format_exc()}")
+                    
+                    # Auto-select each historic mod type
+                    auto_select_historic_mod("map", "CATEGORY_MAPS")
+                    auto_select_historic_mod("font", "CATEGORY_FONTS")
+                    auto_select_historic_mod("announcer", "CATEGORY_ANNOUNCERS")
+                    auto_select_historic_mod("other", "CATEGORY_OTHERS")
+                except Exception as e:
+                    log.warning(f"[HISTORIC] Failed to auto-select historic mods: {e}")
+                    import traceback
+                    log.debug(f"[HISTORIC] Traceback: {traceback.format_exc()}")
             
             # Check if any mods are selected (skin, map, font, announcer, or other)
             selected_map_mod = getattr(self.state, 'selected_map_mod', None)
@@ -129,22 +292,29 @@ class InjectionTrigger:
             selected_announcer_mod = getattr(self.state, 'selected_announcer_mod', None)
             selected_other_mod = getattr(self.state, 'selected_other_mod', None)
             
-            has_custom_skin_mod = selected_custom_mod and selected_custom_mod.get("skin_id") == ui_skin_id
+            # Check if custom skin mod is selected
+            # In historic mode, use the historic skin ID; otherwise use hovered skin ID
+            target_skin_id = ui_skin_id
+            if getattr(self.state, 'historic_mode_active', False) and selected_custom_mod:
+                # Use the skin ID from the selected custom mod (which is the historic skin ID)
+                target_skin_id = selected_custom_mod.get("skin_id", ui_skin_id)
+            
+            has_custom_skin_mod = selected_custom_mod and selected_custom_mod.get("skin_id") == target_skin_id
             has_other_mods = selected_map_mod or selected_font_mod or selected_announcer_mod or selected_other_mod
             has_any_mods = has_custom_skin_mod or has_other_mods
             
             # If custom skin mod is selected, inject it
             if has_custom_skin_mod:
-                # Check if skin is owned
-                is_skin_owned = ui_skin_id in owned_skin_ids
+                # Check if skin is owned (use target_skin_id which is the historic skin ID in historic mode)
+                is_skin_owned = target_skin_id in owned_skin_ids
                 
                 if not is_skin_owned:
                     # Skin not owned: need to inject base skin ZIP + custom mod
-                    log.info(f"[INJECT] Custom mod selected for unowned skin {ui_skin_id}, injecting base skin ZIP + custom mod")
+                    log.info(f"[INJECT] Custom mod selected for unowned skin {target_skin_id}, injecting base skin ZIP + custom mod")
                     self._inject_custom_mod(selected_custom_mod, base_skin_name=name, champion_name=cname)
                 else:
                     # Skin owned: just inject custom mod (base files already in game)
-                    log.info(f"[INJECT] Custom mod selected for owned skin {ui_skin_id}, injecting custom mod only")
+                    log.info(f"[INJECT] Custom mod selected for owned skin {target_skin_id}, injecting custom mod only")
                     self._inject_custom_mod(selected_custom_mod)
                 return
             

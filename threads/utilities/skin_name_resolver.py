@@ -43,9 +43,30 @@ class SkinNameResolver:
             if is_custom_mod_path(hist_value):
                 custom_mod_path = get_custom_mod_path(hist_value)
                 log.info(f"[HISTORIC] Using historic custom mod path for injection: {custom_mod_path}")
-                # Return None to indicate custom mod should be used instead
-                # The injection trigger will handle custom mod selection
-                return None
+                # Extract skin ID from mod path (format: skins/{skin_id}/{mod_name})
+                # For example: "skins/887030/gwen-battle-queen-edited-chroma_2.1.0.fantome" -> 887030
+                try:
+                    path_parts = custom_mod_path.replace("\\", "/").split("/")
+                    if len(path_parts) >= 2 and path_parts[0] == "skins":
+                        skin_id_str = path_parts[1]
+                        base_skin_id = int(skin_id_str)
+                        base_skin_name = f"skin_{base_skin_id}"
+                        log.info(f"[HISTORIC] Extracted base skin ID {base_skin_id} from mod path, returning: {base_skin_name}")
+                        return base_skin_name
+                    else:
+                        log.warning(f"[HISTORIC] Invalid mod path format, expected 'skins/{{skin_id}}/...': {custom_mod_path}")
+                except (ValueError, IndexError) as e:
+                    log.warning(f"[HISTORIC] Failed to extract skin ID from mod path '{custom_mod_path}': {e}")
+                # Fallback: try to use champion ID to get default skin
+                champ_id = self.state.locked_champ_id or self.state.hovered_champ_id
+                if champ_id:
+                    base_skin_id = champ_id * 1000
+                    base_skin_name = f"skin_{base_skin_id}"
+                    log.info(f"[HISTORIC] Fallback: Returning default skin for custom mod injection: {base_skin_name}")
+                    return base_skin_name
+                else:
+                    log.warning(f"[HISTORIC] No champion ID available for custom mod path")
+                    return None
             else:
                 # It's a skin/chroma ID
                 try:
