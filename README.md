@@ -34,6 +34,7 @@ Rose consists of two main components:
 - **WebSocket Bridge**: Operates a WebSocket server for real-time communication with frontend plugins
 - **Skin Management**: Downloads and manages skins from the [LeagueSkins repository](https://github.com/darkseal-org/lol-skins)
 - **Game Monitoring**: Tracks game state, champion select phases, and loadout countdowns
+- **Analytics**: Sends periodic pings to track unique users (configurable, runs in background thread)
 
 ### Pengu Loader Plugins
 
@@ -107,6 +108,28 @@ pip install -r requirements.txt
 
 # Ready to develop! Run main.py as administrator when testing
 ```
+
+## Analytics Configuration
+
+Rose includes an optional analytics system that tracks unique users by sending periodic pings to a server. The analytics system:
+
+- **Runs in background**: Operates as a daemon thread, doesn't affect app performance
+- **Sends pings every 5 minutes**: Includes machine ID and app version
+- **Configurable**: Can be enabled/disabled via `ANALYTICS_ENABLED` in `config.py`
+- **Privacy-friendly**: Uses machine identifiers, no personal data collected
+
+**Current Configuration**:
+- Server URL: `https://api.leagueunlocked.net/analytics/ping`
+- Ping interval: 5 minutes (300 seconds)
+- Enabled by default
+
+To configure analytics:
+1. Edit `config.py`
+2. Update `ANALYTICS_SERVER_URL` to your server endpoint
+3. Adjust `ANALYTICS_PING_INTERVAL_S` if needed
+4. Set `ANALYTICS_ENABLED = False` to disable
+
+For server setup instructions, see [ANALYTICS_SERVER_SETUP.md](ANALYTICS_SERVER_SETUP.md).
 
 ## Project Structure
 
@@ -264,6 +287,12 @@ Rose/
 │   ├── ui/
 │   │   └── update_dialog.py
 │   └── updater.py
+│
+├── analytics/             # Analytics and user tracking
+│   └── core/
+│       ├── machine_id.py  # Machine ID retrieval (Windows Machine GUID)
+│       ├── analytics_client.py  # HTTP client for analytics pings
+│       └── analytics_thread.py  # Background thread for periodic pings
 │
 └── Pengu Loader/          # Pengu Loader and plugins
     ├── Pengu Loader.exe   # Pengu Loader executable
