@@ -190,11 +190,9 @@ def download_file(url: str, session: requests.Session, status_callback: Optional
                 downloaded += len(chunk)
                 
                 # Update status with progress if callback provided
-                if status_callback and total_size > 0:
-                    percent = int((downloaded / total_size) * 100)
+                if status_callback:
                     size_mb = downloaded / (1024 * 1024)
-                    total_mb = total_size / (1024 * 1024)
-                    status_callback(f"Downloading {filename}... ({size_mb:.1f} MB / {total_mb:.1f} MB)")
+                    status_callback(f"Downloading {filename}... ({size_mb:.1f} MB)")
         
         content = b''.join(chunks)
         

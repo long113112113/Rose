@@ -89,10 +89,16 @@ class InjectionTrigger:
             announcer_name = selected_announcer_mod.get("mod_name", "Announcer")
             mod_labels.append(f"ANNOUNCER: {announcer_name}")
         
-        selected_other_mod = getattr(self.state, 'selected_other_mod', None)
-        if selected_other_mod:
-            other_name = selected_other_mod.get("mod_name", "Other")
-            mod_labels.append(f"OTHER: {other_name}")
+        selected_other_mods = getattr(self.state, 'selected_other_mods', None)
+        if not selected_other_mods:
+            # Fallback to legacy single mod
+            selected_other_mod = getattr(self.state, 'selected_other_mod', None)
+            if selected_other_mod:
+                selected_other_mods = [selected_other_mod]
+        
+        if selected_other_mods:
+            other_names = [mod.get("mod_name", "Other") for mod in selected_other_mods]
+            mod_labels.append(f"OTHER: {', '.join(other_names)}")
         
         # Build injection log message with all mods
         injection_label = " + ".join(mod_labels)
@@ -290,7 +296,12 @@ class InjectionTrigger:
             selected_map_mod = getattr(self.state, 'selected_map_mod', None)
             selected_font_mod = getattr(self.state, 'selected_font_mod', None)
             selected_announcer_mod = getattr(self.state, 'selected_announcer_mod', None)
-            selected_other_mod = getattr(self.state, 'selected_other_mod', None)
+            selected_other_mods = getattr(self.state, 'selected_other_mods', None)
+            if not selected_other_mods:
+                # Fallback to legacy single mod
+                selected_other_mod = getattr(self.state, 'selected_other_mod', None)
+                if selected_other_mod:
+                    selected_other_mods = [selected_other_mod]
             
             # Check if custom skin mod is selected
             # In historic mode, use the historic skin ID; otherwise use hovered skin ID
@@ -300,7 +311,7 @@ class InjectionTrigger:
                 target_skin_id = selected_custom_mod.get("skin_id", ui_skin_id)
             
             has_custom_skin_mod = selected_custom_mod and selected_custom_mod.get("skin_id") == target_skin_id
-            has_other_mods = selected_map_mod or selected_font_mod or selected_announcer_mod or selected_other_mod
+            has_other_mods = selected_map_mod or selected_font_mod or selected_announcer_mod or (selected_other_mods and len(selected_other_mods) > 0)
             has_any_mods = has_custom_skin_mod or has_other_mods
             
             # If custom skin mod is selected, inject it
@@ -335,7 +346,13 @@ class InjectionTrigger:
                     selected_mod_types.append("Font")
                 if selected_announcer_mod:
                     selected_mod_types.append("Announcer")
-                if selected_other_mod:
+                selected_other_mods = getattr(self.state, 'selected_other_mods', None)
+                if not selected_other_mods:
+                    # Fallback to legacy single mod
+                    selected_other_mod = getattr(self.state, 'selected_other_mod', None)
+                    if selected_other_mod:
+                        selected_other_mods = [selected_other_mod]
+                if selected_other_mods and len(selected_other_mods) > 0:
                     selected_mod_types.append("Other")
                 mod_types_str = "/".join(selected_mod_types) if selected_mod_types else "Map/Font/Announcer/Other"
                 
@@ -813,16 +830,23 @@ class InjectionTrigger:
                 else:
                     log.warning(f"[INJECT] Announcer mod selected but failed to extract: {selected_announcer_mod.get('mod_name', 'Unknown')}")
             
-            # Add other mod if selected
-            selected_other_mod = getattr(self.state, 'selected_other_mod', None)
-            if selected_other_mod:
-                other_mod_folder = re_extract_mod(selected_other_mod, "Other")
-                if other_mod_folder:
-                    mod_folder_names.append(other_mod_folder)
-                    mod_names_list.append(selected_other_mod.get("mod_name", "Other"))
-                    log.info(f"[INJECT] Including other mod: {selected_other_mod.get('mod_name')}")
-                else:
-                    log.warning(f"[INJECT] Other mod selected but failed to extract: {selected_other_mod.get('mod_name', 'Unknown')}")
+            # Add other mods if selected (support multiple selections)
+            selected_other_mods = getattr(self.state, 'selected_other_mods', None)
+            if not selected_other_mods:
+                # Fallback to legacy single mod for backward compatibility
+                selected_other_mod = getattr(self.state, 'selected_other_mod', None)
+                if selected_other_mod:
+                    selected_other_mods = [selected_other_mod]
+            
+            if selected_other_mods:
+                for selected_other_mod in selected_other_mods:
+                    other_mod_folder = re_extract_mod(selected_other_mod, "Other")
+                    if other_mod_folder:
+                        mod_folder_names.append(other_mod_folder)
+                        mod_names_list.append(selected_other_mod.get("mod_name", "Other"))
+                        log.info(f"[INJECT] Including other mod: {selected_other_mod.get('mod_name')}")
+                    else:
+                        log.warning(f"[INJECT] Other mod selected but failed to extract: {selected_other_mod.get('mod_name', 'Unknown')}")
             
             # Check if we have any mods to inject
             if not mod_folder_names:
@@ -910,11 +934,19 @@ class InjectionTrigger:
                         write_historic_mod("announcer", selected_announcer_mod["relative_path"])
                         log.debug(f"[MOD_HISTORIC] Stored announcer mod: {selected_announcer_mod['relative_path']}")
                     
-                    # Store other mod if selected
-                    selected_other_mod = getattr(self.state, 'selected_other_mod', None)
-                    if selected_other_mod and selected_other_mod.get("relative_path"):
-                        write_historic_mod("other", selected_other_mod["relative_path"])
-                        log.debug(f"[MOD_HISTORIC] Stored other mod: {selected_other_mod['relative_path']}")
+                    # Store other mods if selected (store first one for historic)
+                    selected_other_mods = getattr(self.state, 'selected_other_mods', None)
+                    if not selected_other_mods:
+                        # Fallback to legacy single mod
+                        selected_other_mod = getattr(self.state, 'selected_other_mod', None)
+                        if selected_other_mod:
+                            selected_other_mods = [selected_other_mod]
+                    if selected_other_mods and len(selected_other_mods) > 0:
+                        # Store first mod for historic (legacy behavior)
+                        first_mod = selected_other_mods[0]
+                        if first_mod.get("relative_path"):
+                            write_historic_mod("other", first_mod["relative_path"])
+                            log.debug(f"[MOD_HISTORIC] Stored other mod: {first_mod['relative_path']}")
                 except Exception as e:
                     log.debug(f"[MOD_HISTORIC] Failed to store mod selections: {e}")
                 
@@ -928,6 +960,8 @@ class InjectionTrigger:
                     self.state.selected_announcer_mod = None
                 if hasattr(self.state, 'selected_other_mod'):
                     self.state.selected_other_mod = None
+                if hasattr(self.state, 'selected_other_mods'):
+                    self.state.selected_other_mods = []
             else:
                 log.error("=" * LOG_SEPARATOR_WIDTH)
                 injection_label = " + ".join([m.upper() for m in mod_names_list])

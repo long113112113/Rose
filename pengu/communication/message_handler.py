@@ -510,7 +510,13 @@ class MessageHandler:
         self._send_response(json.dumps(response_payload))
         
         # Auto-select historic mod if available and not already selected
-        if historic_other_path and not getattr(self.shared_state, 'selected_other_mod', None):
+        selected_other_mods = getattr(self.shared_state, 'selected_other_mods', None)
+        if not selected_other_mods:
+            # Fallback to legacy single mod
+            selected_other_mod = getattr(self.shared_state, 'selected_other_mod', None)
+            if selected_other_mod:
+                selected_other_mods = [selected_other_mod]
+        if historic_other_path and (not selected_other_mods or len(selected_other_mods) == 0):
             self._auto_select_historic_mod("other", historic_other_path, others)
     
     def _handle_select_skin_mod(self, payload: dict) -> None:
@@ -582,11 +588,17 @@ class MessageHandler:
             
             # Check if other mods (map/font/announcer/other) are already selected
             # If so, don't clean - just extract the skin mod alongside them
+            selected_other_mods = getattr(self.shared_state, 'selected_other_mods', None)
+            if not selected_other_mods:
+                # Fallback to legacy single mod
+                selected_other_mod = getattr(self.shared_state, 'selected_other_mod', None)
+                if selected_other_mod:
+                    selected_other_mods = [selected_other_mod]
             has_other_mods = (
                 (hasattr(self.shared_state, 'selected_map_mod') and self.shared_state.selected_map_mod) or
                 (hasattr(self.shared_state, 'selected_font_mod') and self.shared_state.selected_font_mod) or
                 (hasattr(self.shared_state, 'selected_announcer_mod') and self.shared_state.selected_announcer_mod) or
-                (hasattr(self.shared_state, 'selected_other_mod') and self.shared_state.selected_other_mod)
+                (selected_other_mods and len(selected_other_mods) > 0)
             )
             
             # Only clean mods directory if no other mods are selected
@@ -997,20 +1009,33 @@ class MessageHandler:
             log.debug(f"[SkinMonitor] Traceback: {traceback.format_exc()}")
     
     def _handle_select_other(self, payload: dict) -> None:
-        """Handle other mod selection for injection"""
+        """Handle other mod selection for injection (supports multiple selections)"""
         if not self.mod_storage:
             log.warning("[SkinMonitor] Cannot handle other selection - mod storage not available")
             return
         
         other_id = payload.get("otherId")
         other_data = payload.get("otherData", {})
+        action = payload.get("action", "select")  # "select" or "deselect"
         
-        # Handle deselection (other_id is null)
-        if other_id is None:
-            if hasattr(self.shared_state, 'selected_other_mod') and self.shared_state.selected_other_mod:
-                self.shared_state.selected_other_mod = None
-                log.info(f"[SkinMonitor] Other mod deselected")
-                # Clear historic mod when deselected
+        # Initialize selected_other_mods as list if it doesn't exist
+        if not hasattr(self.shared_state, 'selected_other_mods'):
+            self.shared_state.selected_other_mods = []
+        
+        # Handle deselection
+        if action == "deselect" or other_id is None:
+            if other_id:
+                # Remove specific mod from list
+                self.shared_state.selected_other_mods = [
+                    mod for mod in self.shared_state.selected_other_mods 
+                    if mod.get("relative_path") != other_data.get("id")
+                ]
+                log.info(f"[SkinMonitor] Other mod deselected: {other_id}")
+            else:
+                # Clear all (legacy support)
+                self.shared_state.selected_other_mods = []
+                log.info(f"[SkinMonitor] All other mods deselected")
+                # Clear historic mod when all deselected
                 try:
                     from utils.core.mod_historic import clear_historic_mod
                     clear_historic_mod("other")
@@ -1095,16 +1120,29 @@ class MessageHandler:
                 shutil.copy2(mod_source, mod_dest / mod_source.name)
                 log.info(f"[SkinMonitor] Copied other mod file to folder: {mod_dest}")
 
-            # Store selected other mod in shared state for injection
-            self.shared_state.selected_other_mod = {
+            # Store selected other mod in shared state for injection (add to list)
+            mod_info = {
                 "mod_name": selected_mod.mod_name,
                 "mod_path": str(selected_mod.path),
                 "mod_folder_name": mod_folder_name,
                 "relative_path": str(selected_mod.path.relative_to(self.mod_storage.mods_root)).replace("\\", "/"),
             }
             
-            log.info(f"[SkinMonitor] Other mod selected and extracted: {selected_mod.mod_name}")
-            log.info(f"[SkinMonitor] Other mod ready for injection alongside skin")
+            # Check if mod is already in list (by relative_path)
+            relative_path = mod_info["relative_path"]
+            existing_index = None
+            for i, existing_mod in enumerate(self.shared_state.selected_other_mods):
+                if existing_mod.get("relative_path") == relative_path:
+                    existing_index = i
+                    break
+            
+            if existing_index is None:
+                # Add new mod to list
+                self.shared_state.selected_other_mods.append(mod_info)
+                log.info(f"[SkinMonitor] Other mod selected and extracted: {selected_mod.mod_name}")
+                log.info(f"[SkinMonitor] Other mod ready for injection alongside skin (total: {len(self.shared_state.selected_other_mods)})")
+            else:
+                log.info(f"[SkinMonitor] Other mod already selected: {selected_mod.mod_name}")
 
         except Exception as e:
             log.error(f"[SkinMonitor] Failed to handle other selection: {e}")
