@@ -263,7 +263,7 @@ class MessageHandler:
         """Handle settings request"""
         try:
             threshold = get_config_float("General", "injection_threshold", 0.5)
-            monitor_auto_resume_timeout = get_config_float("General", "monitor_auto_resume_timeout", 20.0)
+            monitor_auto_resume_timeout = get_config_float("General", "monitor_auto_resume_timeout", 60.0)
             autostart = is_registered_for_autostart()
             game_path = get_config_option("General", "leaguePath") or ""
             
@@ -1196,7 +1196,7 @@ class MessageHandler:
         """Handle settings save"""
         try:
             threshold = max(0.3, min(2.0, float(payload.get("threshold", 0.5))))
-            monitor_auto_resume_timeout = max(20, min(90, int(payload.get("monitorAutoResumeTimeout", 20))))
+            monitor_auto_resume_timeout = max(20, min(180, int(payload.get("monitorAutoResumeTimeout", 60))))
             autostart = payload.get("autostart", False)
             game_path = payload.get("gamePath", "")
             
