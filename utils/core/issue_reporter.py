@@ -6,7 +6,7 @@ Issue Reporter
 Writes a small, human-friendly diagnostics file that summarizes important
 errors and "non-error failure reasons" (e.g., timeouts, settings mismatches).
 
-File: %LOCALAPPDATA%\\Rose\\logs\\rose_issues.txt
+File: %LOCALAPPDATA%\\Rose\\rose_issues.txt
 """
 
 from __future__ import annotations
@@ -22,9 +22,9 @@ _LAST: Dict[str, float] = {}  # naive dedupe: key -> last timestamp
 
 
 def _issues_path():
-    logs_dir = get_user_data_dir() / "logs"
-    logs_dir.mkdir(parents=True, exist_ok=True)
-    return logs_dir / "rose_issues.txt"
+    base_dir = get_user_data_dir()
+    base_dir.mkdir(parents=True, exist_ok=True)
+    return base_dir / "rose_issues.txt"
 
 
 def report_issue(
