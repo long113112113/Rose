@@ -31,7 +31,7 @@ Rose consists of two main components:
 - **LCU API Integration**: Communicates with the League Client via the League Client Update (LCU) API
 - **CSLOL Injection**: Uses CSLOL tools for safe skin injection
 - **WebSocket Bridge**: Operates a WebSocket server for real-time communication with frontend plugins
-- **Skin Management**: Downloads and manages skins from the [LeagueSkins repository](https://github.com/darkseal-org/lol-skins)
+- **Skin Management**: Downloads and manages skins from the [LeagueSkins repository](https://github.com/Alban1911/LeagueSkins)
 - **Game Monitoring**: Tracks game state, champion select phases, and loadout countdowns
 - **Analytics**: Sends periodic pings to track unique users (configurable, runs in background thread)
 
