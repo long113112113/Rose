@@ -140,18 +140,13 @@ class UpdateSequence:
         local_parsed = [_parse_semver_like(v) for v in local_candidates]
         remote_parsed = _parse_semver_like(remote_version) if remote_version else None
 
-        # Prevent unintended downgrade: if local > remote, do not update.
-        # This is especially useful for testing builds where APP_VERSION is bumped ahead.
+        # Determine effective local version (max of installed_version and APP_VERSION).
         effective_local: Optional[tuple[int, ...]] = None
         for v in local_parsed:
             if v is None:
                 continue
             if effective_local is None or _cmp_version(v, effective_local) == 1:
                 effective_local = v
-
-        if _cmp_version(effective_local, remote_parsed) == 1:
-            status_callback("Update skipped (local version is newer)")
-            return False
 
         # If versions match, we are up to date.
         if _cmp_version(effective_local, remote_parsed) == 0 or (
