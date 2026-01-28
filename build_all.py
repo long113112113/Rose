@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 """
 Complete build script for Rose
-Builds executable with Nuitka and creates Windows installer in one step
+Builds executable with PyInstaller and creates Windows installer in one step
 """
 
 import sys
