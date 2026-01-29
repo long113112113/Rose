@@ -1343,18 +1343,8 @@ class InjectionTrigger:
                 except Exception as e:
                     log.debug(f"[MOD_HISTORIC] Failed to store mod selections: {e}")
                 
-                # Clear all selected mods after successful injection
-                self.state.selected_custom_mod = None
-                if hasattr(self.state, 'selected_map_mod'):
-                    self.state.selected_map_mod = None
-                if hasattr(self.state, 'selected_font_mod'):
-                    self.state.selected_font_mod = None
-                if hasattr(self.state, 'selected_announcer_mod'):
-                    self.state.selected_announcer_mod = None
-                if hasattr(self.state, 'selected_other_mod'):
-                    self.state.selected_other_mod = None
-                if hasattr(self.state, 'selected_other_mods'):
-                    self.state.selected_other_mods = []
+                # Keep mod selections in state so they persist across games.
+                # Users can deselect manually; historic files handle cross-session persistence.
             else:
                 log.error("=" * LOG_SEPARATOR_WIDTH)
                 injection_label = " + ".join([m.upper() for m in mod_names_list])
