@@ -7,6 +7,7 @@ Handles Swiftplay-specific lobby data and champion selection
 
 from typing import Optional
 
+from config import LCU_API_TIMEOUT_S
 from utils.core.logging import get_logger
 
 from ..core.lockfile import SWIFTPLAY_MODES
@@ -341,8 +342,81 @@ class LCUSwiftplay:
             
             log.warning("No local champions found in lobby data")
             return None
-            
+
         except Exception as e:
             log.debug(f"Error extracting dual champion selection from data: {e}")
             return None
+
+    def force_base_skin_slots(self, skin_tracking: dict) -> bool:
+        """Force base skins on swiftplay player slots for tracked champions.
+
+        Reads the current player slots, replaces ``skinId`` with the base
+        skin (``championId * 1000``) for every champion present in
+        *skin_tracking*, and PUTs the modified slots back.
+
+        Args:
+            skin_tracking: ``{champion_id: custom_skin_id}`` mapping built
+                           by the skin processor during lobby.
+
+        Returns:
+            True if the PUT succeeded, False otherwise.
+        """
+        if not skin_tracking:
+            return False
+
+        try:
+            lobby = self.api.get("/lol-lobby/v2/lobby", LCU_API_TIMEOUT_S)
+            if not lobby or not isinstance(lobby, dict):
+                log.warning("[Swiftplay] Cannot force base skins - no lobby data")
+                return False
+
+            local_member = lobby.get("localMember")
+            if not isinstance(local_member, dict):
+                log.warning("[Swiftplay] Cannot force base skins - no localMember")
+                return False
+
+            player_slots = local_member.get("playerSlots")
+            if not isinstance(player_slots, list) or not player_slots:
+                log.warning("[Swiftplay] Cannot force base skins - no playerSlots")
+                return False
+
+            modified = False
+            for slot in player_slots:
+                if not isinstance(slot, dict):
+                    continue
+                champ_id = slot.get("championId")
+                if champ_id and int(champ_id) in skin_tracking:
+                    base_skin_id = int(champ_id) * 1000
+                    current_skin = slot.get("skinId")
+                    if current_skin != base_skin_id:
+                        log.info(
+                            f"[Swiftplay] Forcing base skin for champion {champ_id}: "
+                            f"{current_skin} -> {base_skin_id}"
+                        )
+                        slot["skinId"] = base_skin_id
+                        modified = True
+
+            if not modified:
+                log.debug("[Swiftplay] All tracked slots already have base skins")
+                return True
+
+            log.info(f"[Swiftplay] PUT player-slots payload: {player_slots}")
+            resp = self.api.put(
+                "/lol-lobby/v1/lobby/members/localMember/player-slots",
+                player_slots,
+                LCU_API_TIMEOUT_S,
+                headers={"x-riot-source": "rcp-fe-lol-parties"},
+            )
+            if resp is not None and resp.status_code in (200, 201, 204):
+                log.info("[Swiftplay] Base skins forced successfully via player-slots PUT")
+                return True
+
+            status = resp.status_code if resp is not None else "None"
+            body = resp.text[:300] if resp is not None else "No response"
+            log.warning(f"[Swiftplay] Failed to force base skins: status={status}, body={body}")
+            return False
+
+        except Exception as e:
+            log.warning(f"[Swiftplay] Error forcing base skins: {e}")
+            return False
 

@@ -67,6 +67,57 @@ class LCUAPI:
             except requests.exceptions.RequestException:
                 return None
     
+    def put(self, path: str, json_data, timeout: float, headers: Optional[dict] = None) -> Optional[requests.Response]:
+        """Make PUT request to LCU API
+
+        Args:
+            path: API endpoint path
+            json_data: JSON-serializable data to send (dict or list)
+            timeout: Request timeout in seconds
+            headers: Optional extra headers to merge into the request
+
+        Returns:
+            Response object or None if failed
+        """
+        if not self.connection.ok:
+            self.connection.refresh_if_needed()
+            if not self.connection.ok:
+                return None
+
+        url = (self.connection.base or "") + path
+
+        try:
+            t0 = time.perf_counter()
+            resp = self.connection.session.put(
+                url,
+                json=json_data,
+                timeout=timeout,
+                headers=headers,
+            )
+            dt_ms = (time.perf_counter() - t0) * 1000.0
+            log.info(f"[LCU] PUT {path} -> {getattr(resp, 'status_code', 'None')} in {dt_ms:.1f}ms")
+            return resp
+        except Exception as exc:
+            log.warning(f"[LCU] PUT {path} failed ({type(exc).__name__}): {exc}")
+            self.connection.refresh_if_needed(force=True)
+            if not self.connection.ok:
+                log.warning(f"[LCU] PUT {path} - connection lost after refresh")
+                return None
+            try:
+                t0 = time.perf_counter()
+                resp = self.connection.session.put(
+                    url,
+                    json=json_data,
+                    timeout=timeout,
+                    headers=headers,
+                )
+                dt_ms = (time.perf_counter() - t0) * 1000.0
+                log.info(f"[LCU] PUT(retry) {path} -> {getattr(resp, 'status_code', 'None')} in {dt_ms:.1f}ms")
+                return resp
+            except Exception as exc2:
+                log.warning(f"[LCU] PUT(retry) {path} also failed ({type(exc2).__name__}): {exc2}")
+                return None
+
     def patch(self, path: str, json_data: dict, timeout: float) -> Optional[requests.Response]:
         """Make PATCH request to LCU API
         

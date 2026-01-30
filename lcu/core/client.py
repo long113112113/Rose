@@ -167,6 +167,10 @@ class LCU:
     def get_swiftplay_dual_champion_selection(self) -> Optional[dict]:
         """Get both champion selections from Swiftplay lobby"""
         return self._swiftplay.get_swiftplay_dual_champion_selection()
+
+    def force_swiftplay_base_skins(self, skin_tracking: dict) -> bool:
+        """Force base skins on swiftplay player slots for tracked champions"""
+        return self._swiftplay.force_base_skin_slots(skin_tracking)
     
     # Champion name lookup (delegated to properties handler)
     def get_champion_name_by_id(self, champion_id: int) -> Optional[str]:

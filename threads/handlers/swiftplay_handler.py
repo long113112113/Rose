@@ -46,6 +46,7 @@ class SwiftplayHandler:
         self._last_matchmaking_state = None
         self._swiftplay_champ_check_interval = 0.5
         self._last_swiftplay_champ_check = 0.0
+        self._base_skin_forced_champions: set[int] = set()
     
     def detect_swiftplay_in_lobby(self) -> tuple[Optional[str], Optional[int]]:
         """Detect lobby game mode using multiple API endpoints."""
@@ -270,6 +271,29 @@ class SwiftplayHandler:
         except Exception as e:
             log.debug(f"[phase] Error polling Swiftplay champion selection: {e}")
     
+    def force_base_skins_if_needed(self):
+        """Force base skins for newly tracked champions during lobby phase.
+
+        Called from the lobby polling loop so the PUT happens while the
+        lobby is still editable (before matchmaking locks it).
+        """
+        tracking = self.state.swiftplay_skin_tracking
+        if not tracking:
+            return
+
+        # Only force for champions we haven't already forced
+        new_champs = set(tracking.keys()) - self._base_skin_forced_champions
+        if not new_champs:
+            return
+
+        try:
+            # Build a subset dict for only the new champions
+            subset = {cid: sid for cid, sid in tracking.items() if cid in new_champs}
+            if self.lcu.force_swiftplay_base_skins(subset):
+                self._base_skin_forced_champions.update(new_champs)
+        except Exception as e:
+            log.warning(f"[phase] Error forcing base skins during lobby: {e}")
+
     def cleanup_swiftplay_exit(self):
         """Clear Swiftplay-specific state when leaving the lobby."""
         try:
@@ -279,6 +303,8 @@ class SwiftplayHandler:
                 self.state.swiftplay_skin_tracking.clear()
             except Exception:
                 self.state.swiftplay_skin_tracking = {}
+
+            self._base_skin_forced_champions.clear()
 
             # Don't clear extracted_mods if we're still in Swiftplay mode and haven't built overlay yet
             # Only clear if we're actually leaving Swiftplay mode (phase is None or not Swiftplay-related)
@@ -350,7 +376,7 @@ class SwiftplayHandler:
             
             total_skins = len(self.state.swiftplay_skin_tracking)
             log.info(f"[phase] Will inject {total_skins} skin(s) from tracking dictionary")
-            
+
             from utils.core.utilities import is_base_skin
             from pathlib import Path
             import zipfile

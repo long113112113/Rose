@@ -50,6 +50,9 @@ class PhaseThread(threading.Thread):
         self.phase_handler = PhaseHandler(lcu, state, injection_manager, skin_scraper, self.swiftplay_handler)
         self.lobby_processor = LobbyProcessor(lcu, state, injection_manager, skin_scraper, self.swiftplay_handler)
 
+        # Expose callback so the message handler can trigger base skin forcing directly
+        state.force_base_skins_callback = self.swiftplay_handler.force_base_skins_if_needed
+
     def run(self):
         """Main thread loop"""
         while not self.state.stop:

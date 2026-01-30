@@ -142,6 +142,8 @@ class MessageHandler:
             self._handle_add_custom_mods_champion_selected(payload)
         elif payload_type == "add-custom-mods-skin-selected":
             self._handle_add_custom_mods_skin_selected(payload)
+        elif payload_type == "find-match-hover":
+            self._handle_find_match_hover(payload)
         elif payload.get("skin"):
             # Handle skin detection message
             self._handle_skin_detection(payload)
@@ -254,6 +256,27 @@ class MessageHandler:
                     log.debug(f"[SkinMonitor] Failed to call panel wrapper in fallback: {e}")
                     self.broadcaster.broadcast_chroma_state()
     
+    def _handle_find_match_hover(self, payload: dict) -> None:
+        """Handle Find-Match button hover — force base skins immediately."""
+        t0 = time.perf_counter()
+        js_ts = payload.get("timestamp", 0)
+        now_ms = int(time.time() * 1000)
+        latency = now_ms - js_ts if js_ts else "?"
+        log.info(f"[SkinMonitor] Find-Match hover received (JS→Py latency: {latency}ms)")
+
+        self.shared_state._find_match_hover_at = t0
+
+        callback = getattr(self.shared_state, "force_base_skins_callback", None)
+        if callback:
+            try:
+                callback()
+                elapsed_ms = (time.perf_counter() - t0) * 1000
+                log.info(f"[SkinMonitor] Base skin force completed in {elapsed_ms:.0f}ms")
+            except Exception as e:
+                log.warning(f"[SkinMonitor] Base skin force failed: {e}")
+        else:
+            log.debug("[SkinMonitor] No force_base_skins_callback registered")
+
     def _handle_dice_button_click(self, payload: dict) -> None:
         """Handle dice button click"""
         button_state = payload.get("state", "disabled")
