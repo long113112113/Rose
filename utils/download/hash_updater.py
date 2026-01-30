@@ -257,13 +257,36 @@ def update_hash_files(status_callback: Optional[Callable[[str], None]] = None, d
     if status_callback:
         status_callback("Checking game hashes…")
     updater_log.info("Checking game hashes…")
-    
+
+    # Determine target path to check if file already exists on disk
+    if getattr(sys, 'frozen', False):
+        if hasattr(sys, '_MEIPASS'):
+            _tools_dir = Path(sys._MEIPASS) / "injection" / "tools"
+        else:
+            base_dir = Path(sys.executable).parent
+            _tools_dir = None
+            for dir_path in [base_dir / "injection" / "tools", base_dir / "_internal" / "injection" / "tools"]:
+                if dir_path.exists():
+                    _tools_dir = dir_path
+                    break
+            if not _tools_dir:
+                _tools_dir = base_dir / "injection" / "tools"
+    else:
+        _tools_dir = Path(__file__).parent.parent.parent / "injection" / "tools"
+    target_exists = (_tools_dir / TARGET_FILE).exists()
+
     # Check if updates are available
     if not check_for_updates():
-        updater_log.info("Game hashes are valid (no update needed)")
-        if status_callback:
-            status_callback("Game hashes are valid")
-        return False
+        if target_exists:
+            updater_log.info("Game hashes are valid (no update needed)")
+            if status_callback:
+                status_callback("Game hashes are valid")
+            return False
+        else:
+            # File doesn't exist on disk — force download even though API check
+            # returned no updates (e.g. rate limited or network error)
+            log.warning("Hash file missing on disk, forcing download despite update check result")
+            updater_log.warning("Hash file missing on disk, forcing download")
     
     log.info("Hash files have been updated, downloading...")
     updater_log.info("Hash files have been updated, downloading...")
