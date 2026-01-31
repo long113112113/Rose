@@ -46,7 +46,6 @@ class SwiftplayHandler:
         self._last_matchmaking_state = None
         self._swiftplay_champ_check_interval = 0.5
         self._last_swiftplay_champ_check = 0.0
-        self._base_skin_forced_champions: set[int] = set()
     
     def detect_swiftplay_in_lobby(self) -> tuple[Optional[str], Optional[int]]:
         """Detect lobby game mode using multiple API endpoints."""
@@ -243,6 +242,11 @@ class SwiftplayHandler:
                 
                 # Check if matchmaking has started
                 if current_state == "Searching" and not self._injection_triggered:
+                    hover_at = getattr(self.state, "_find_match_hover_at", None)
+                    if hover_at:
+                        delta_ms = (time.perf_counter() - hover_at) * 1000
+                        log.info(f"[phase] Hover → Queue delay: {delta_ms:.0f}ms")
+                        self.state._find_match_hover_at = None
                     log.info("[phase] Swiftplay matchmaking started - triggering injection system")
                     self.trigger_swiftplay_injection()
                     self._injection_triggered = True
@@ -272,27 +276,21 @@ class SwiftplayHandler:
             log.debug(f"[phase] Error polling Swiftplay champion selection: {e}")
     
     def force_base_skins_if_needed(self):
-        """Force base skins for newly tracked champions during lobby phase.
+        """Force base skins for all tracked champions.
 
-        Called from the lobby polling loop so the PUT happens while the
-        lobby is still editable (before matchmaking locks it).
+        Called directly from the message handler when the user hovers
+        the Find-Match button, so the PUT happens while the lobby is
+        still editable.
         """
         tracking = self.state.swiftplay_skin_tracking
         if not tracking:
             return
 
-        # Only force for champions we haven't already forced
-        new_champs = set(tracking.keys()) - self._base_skin_forced_champions
-        if not new_champs:
-            return
-
         try:
-            # Build a subset dict for only the new champions
-            subset = {cid: sid for cid, sid in tracking.items() if cid in new_champs}
-            if self.lcu.force_swiftplay_base_skins(subset):
-                self._base_skin_forced_champions.update(new_champs)
+            owned = getattr(self.state, "owned_skin_ids", None) or set()
+            self.lcu.force_swiftplay_base_skins(tracking, owned)
         except Exception as e:
-            log.warning(f"[phase] Error forcing base skins during lobby: {e}")
+            log.warning(f"[phase] Error forcing base skins: {e}")
 
     def cleanup_swiftplay_exit(self):
         """Clear Swiftplay-specific state when leaving the lobby."""
@@ -303,8 +301,6 @@ class SwiftplayHandler:
                 self.state.swiftplay_skin_tracking.clear()
             except Exception:
                 self.state.swiftplay_skin_tracking = {}
-
-            self._base_skin_forced_champions.clear()
 
             # Don't clear extracted_mods if we're still in Swiftplay mode and haven't built overlay yet
             # Only clear if we're actually leaving Swiftplay mode (phase is None or not Swiftplay-related)

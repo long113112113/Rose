@@ -347,16 +347,18 @@ class LCUSwiftplay:
             log.debug(f"Error extracting dual champion selection from data: {e}")
             return None
 
-    def force_base_skin_slots(self, skin_tracking: dict) -> bool:
+    def force_base_skin_slots(self, skin_tracking: dict, owned_skin_ids: set = None) -> bool:
         """Force base skins on swiftplay player slots for tracked champions.
 
         Reads the current player slots, replaces ``skinId`` with the base
-        skin (``championId * 1000``) for every champion present in
-        *skin_tracking*, and PUTs the modified slots back.
+        skin (``championId * 1000``) for every champion whose tracked skin
+        is **not** owned, and PUTs the modified slots back.
 
         Args:
             skin_tracking: ``{champion_id: custom_skin_id}`` mapping built
                            by the skin processor during lobby.
+            owned_skin_ids: Set of skin IDs the player owns. Owned skins
+                            are left untouched.
 
         Returns:
             True if the PUT succeeded, False otherwise.
@@ -380,12 +382,17 @@ class LCUSwiftplay:
                 log.warning("[Swiftplay] Cannot force base skins - no playerSlots")
                 return False
 
+            owned = owned_skin_ids or set()
             modified = False
             for slot in player_slots:
                 if not isinstance(slot, dict):
                     continue
                 champ_id = slot.get("championId")
                 if champ_id and int(champ_id) in skin_tracking:
+                    tracked_skin = skin_tracking[int(champ_id)]
+                    if tracked_skin in owned:
+                        log.debug(f"[Swiftplay] Skin {tracked_skin} for champion {champ_id} is owned — skipping")
+                        continue
                     base_skin_id = int(champ_id) * 1000
                     current_skin = slot.get("skinId")
                     if current_skin != base_skin_id:

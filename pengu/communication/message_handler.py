@@ -263,6 +263,7 @@ class MessageHandler:
         now_ms = int(time.time() * 1000)
         latency = now_ms - js_ts if js_ts else "?"
         log.info(f"[SkinMonitor] Find-Match hover received (JS→Py latency: {latency}ms)")
+        self.shared_state._find_match_hover_at = t0
         callback = getattr(self.shared_state, "force_base_skins_callback", None)
         if callback:
             try:
