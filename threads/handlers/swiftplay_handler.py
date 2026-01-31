@@ -6,6 +6,7 @@ Handles Swiftplay mode detection and injection
 """
 
 import logging
+import threading
 import time
 from typing import Optional
 
@@ -46,6 +47,7 @@ class SwiftplayHandler:
         self._last_matchmaking_state = None
         self._swiftplay_champ_check_interval = 0.5
         self._last_swiftplay_champ_check = 0.0
+        self._overlay_lock = threading.Lock()
     
     def detect_swiftplay_in_lobby(self) -> tuple[Optional[str], Optional[int]]:
         """Detect lobby game mode using multiple API endpoints."""
@@ -481,50 +483,51 @@ class SwiftplayHandler:
     
     def run_swiftplay_overlay(self):
         """Run overlay injection for Swiftplay mode with previously extracted mods"""
-        try:
-            if not self.state.swiftplay_extracted_mods:
-                log.warning("[phase] No extracted mods available for overlay injection")
-                return
-            
-            if not self.injection_manager:
-                log.error("[phase] Injection manager not available")
-                return
-            
-            self.injection_manager._ensure_initialized()
-            
-            if not self.injection_manager.injector:
-                log.error("[phase] Injector not initialized")
-                return
-            
-            extracted_mods = self.state.swiftplay_extracted_mods
-            log.info(f"[phase] Running overlay injection for {len(extracted_mods)} mod(s): {', '.join(extracted_mods)}")
-            
-            # Start game monitor to prevent game from starting before overlay is ready
-            if not self.injection_manager._monitor_active:
-                log.info("[phase] Starting game monitor for Swiftplay overlay injection")
-                self.injection_manager._start_monitor()
-            
+        with self._overlay_lock:
             try:
-                result = self.injection_manager.injector._mk_run_overlay(
-                    extracted_mods,
-                    timeout=60,
-                    stop_callback=None,
-                    injection_manager=self.injection_manager
-                )
-                
-                if result == 0:
-                    log.info(f"[phase] Successfully injected {len(extracted_mods)} skin(s) for Swiftplay")
-                else:
-                    log.warning(f"[phase] Injection completed with non-zero exit code: {result}")
+                if not self.state.swiftplay_extracted_mods:
+                    log.warning("[phase] No extracted mods available for overlay injection")
+                    return
+
+                if not self.injection_manager:
+                    log.error("[phase] Injection manager not available")
+                    return
+
+                self.injection_manager._ensure_initialized()
+
+                if not self.injection_manager.injector:
+                    log.error("[phase] Injector not initialized")
+                    return
+
+                extracted_mods = self.state.swiftplay_extracted_mods
+                log.info(f"[phase] Running overlay injection for {len(extracted_mods)} mod(s): {', '.join(extracted_mods)}")
+
+                # Start game monitor to prevent game from starting before overlay is ready
+                if not self.injection_manager._monitor_active:
+                    log.info("[phase] Starting game monitor for Swiftplay overlay injection")
+                    self.injection_manager._start_monitor()
+
+                try:
+                    result = self.injection_manager.injector._mk_run_overlay(
+                        extracted_mods,
+                        timeout=60,
+                        stop_callback=None,
+                        injection_manager=self.injection_manager
+                    )
+
+                    if result == 0:
+                        log.info(f"[phase] Successfully injected {len(extracted_mods)} skin(s) for Swiftplay")
+                    else:
+                        log.warning(f"[phase] Injection completed with non-zero exit code: {result}")
+                except Exception as e:
+                    log.error(f"[phase] Error during overlay injection: {e}")
+                    import traceback
+                    log.debug(f"[phase] Traceback: {traceback.format_exc()}")
+
+                # Clear extracted mods after injection
+                self.state.swiftplay_extracted_mods = []
             except Exception as e:
-                log.error(f"[phase] Error during overlay injection: {e}")
+                log.warning(f"[phase] Error running Swiftplay overlay: {e}")
                 import traceback
                 log.debug(f"[phase] Traceback: {traceback.format_exc()}")
-            
-            # Clear extracted mods after injection
-            self.state.swiftplay_extracted_mods = []
-        except Exception as e:
-            log.warning(f"[phase] Error running Swiftplay overlay: {e}")
-            import traceback
-            log.debug(f"[phase] Traceback: {traceback.format_exc()}")
 

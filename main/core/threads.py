@@ -33,10 +33,11 @@ def initialize_threads(lcu, state, args, injection_manager, skin_scraper, app_st
     state.ui_skin_thread = t_ui  # Store reference for access during champion exchange
     thread_manager.register("Pengu Skin Monitor", t_ui, stop_method=t_ui.stop)
     
-    t_ws = WSEventThread(lcu, state, ping_interval=args.ws_ping, 
-                        ping_timeout=WS_PING_TIMEOUT_DEFAULT, timer_hz=args.timer_hz, 
-                        fallback_ms=args.fallback_loadout_ms, injection_manager=injection_manager, 
-                        skin_scraper=skin_scraper, app_status=app_status)
+    t_ws = WSEventThread(lcu, state, ping_interval=args.ws_ping,
+                        ping_timeout=WS_PING_TIMEOUT_DEFAULT, timer_hz=args.timer_hz,
+                        fallback_ms=args.fallback_loadout_ms, injection_manager=injection_manager,
+                        skin_scraper=skin_scraper, app_status=app_status,
+                        swiftplay_handler=t_phase.swiftplay_handler)
     thread_manager.register("WebSocket", t_ws, stop_method=t_ws.stop)
     
     # Language callback to update shared state

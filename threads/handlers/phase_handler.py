@@ -96,6 +96,10 @@ class PhaseHandler:
                     log.warning(f"[phase] Failed to request UI initialization in ChampSelect: {e}")
         
         elif phase == "GameStart":
+            if self.state.is_swiftplay_mode and self.state.swiftplay_extracted_mods:
+                log.info("[phase] GameStart fallback - overlay not yet injected, triggering now")
+                if self.swiftplay_handler:
+                    self.swiftplay_handler.run_swiftplay_overlay()
             log_action(log, "GameStart detected - UI will be destroyed after injection", "🚀")
         
         elif phase == "InProgress":

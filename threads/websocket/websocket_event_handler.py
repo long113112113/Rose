@@ -28,9 +28,10 @@ class WebSocketEventHandler:
         game_mode_detector=None,
         timer_manager=None,
         injection_manager=None,
+        swiftplay_handler=None,
     ):
         """Initialize event handler
-        
+
         Args:
             lcu: LCU client instance
             state: Shared application state
@@ -38,6 +39,7 @@ class WebSocketEventHandler:
             game_mode_detector: Game mode detector instance
             timer_manager: Timer manager instance
             injection_manager: Injection manager instance
+            swiftplay_handler: Swiftplay handler instance for overlay injection
         """
         self.lcu = lcu
         self.state = state
@@ -45,6 +47,7 @@ class WebSocketEventHandler:
         self.game_mode_detector = game_mode_detector
         self.timer_manager = timer_manager
         self.injection_manager = injection_manager
+        self.swiftplay_handler = swiftplay_handler
     
     def handle_message(self, ws, msg):
         """Handle incoming WebSocket message"""
@@ -97,6 +100,14 @@ class WebSocketEventHandler:
                 
                 if self.state.is_swiftplay_mode:
                     log.debug("[WS] ChampSelect in Swiftplay mode - skipping normal reset")
+                    if self.state.swiftplay_extracted_mods and self.swiftplay_handler:
+                        import threading
+                        log.info("[WS] Triggering Swiftplay overlay injection from WebSocket handler")
+                        threading.Thread(
+                            target=self.swiftplay_handler.run_swiftplay_overlay,
+                            daemon=True,
+                            name="SwiftplayOverlay-WS",
+                        ).start()
                 else:
                     self._handle_champ_select_entry()
             

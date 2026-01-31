@@ -39,6 +39,7 @@ class WSEventThread(threading.Thread):
         skin_scraper=None,
         app_status_callback=None,
         app_status=None,
+        swiftplay_handler=None,
     ):
         super().__init__(daemon=True)
         self.lcu = lcu
@@ -57,7 +58,8 @@ class WSEventThread(threading.Thread):
             lcu, state, timer_hz, fallback_ms, injection_manager, skin_scraper
         )
         self.event_handler = WebSocketEventHandler(
-            lcu, state, self.champion_lock_handler, self.game_mode_detector, self.timer_manager, injection_manager
+            lcu, state, self.champion_lock_handler, self.game_mode_detector, self.timer_manager, injection_manager,
+            swiftplay_handler=swiftplay_handler,
         )
         
         # Initialize WebSocket connection
