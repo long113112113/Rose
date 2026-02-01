@@ -3567,9 +3567,9 @@
     if (!settingsPanel) return;
 
     // Disable selected nav item
-    const navItem = document.getElementsByClassName("menu_item_Golden");
-    if (navItem.length == 1) {
-      navItem[0].removeAttribute("active")
+    const navItem = document.querySelector(".menu_item_Golden");
+    if (navItem) {
+      navItem.removeAttribute("active")
     }
 
     // Restore last active item
