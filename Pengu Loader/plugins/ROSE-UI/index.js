@@ -17,9 +17,105 @@
   const DISCORD_INVITE_URL = "https://discord.gg/cDepnwVS8Z";
 
   let BRIDGE_PORT = 50000; // Default, will be updated from /bridge-port endpoint
+  let BRIDGE_URL = `ws://127.0.0.1:${BRIDGE_PORT}`;
   const BRIDGE_PORT_STORAGE_KEY = "rose_bridge_port";
   const DISCOVERY_START_PORT = 50000;
   const DISCOVERY_END_PORT = 50010;
+
+  let bridgeSocket = null;
+  let bridgeReady = false;
+  let bridgeQueue = [];
+
+  let lastBaseSkinSkipRequest = 0;
+  const BASE_SKIN_SKIP_REQUEST_TIME_WINDOW_MS = 5000;
+
+  function setupBridgeSocket() {
+    if (bridgeSocket && bridgeSocket.readyState === WebSocket.OPEN) {
+      return;
+    }
+
+    try {
+      bridgeSocket = new WebSocket(BRIDGE_URL);
+
+      bridgeSocket.onopen = () => {
+        log.info("WebSocket bridge connected");
+        bridgeReady = true;
+        flushBridgeQueue();
+      };
+
+      bridgeSocket.onmessage = (event) => {
+        try {
+          const payload = JSON.parse(event.data);
+          handleBridgeMessage(payload);
+        } catch (e) {
+          log.error("Failed to parse bridge message", { error: e.message });
+        }
+      };
+
+      bridgeSocket.onerror = (error) => {
+        log.warn("WebSocket bridge error", {
+          error: error.message || "Unknown error",
+        });
+      };
+
+      bridgeSocket.onclose = () => {
+        log.info("WebSocket bridge closed, reconnecting...");
+        bridgeReady = false;
+        bridgeSocket = null;
+        scheduleBridgeRetry();
+      };
+    } catch (e) {
+      log.error("Failed to setup WebSocket bridge", { error: e.message });
+      scheduleBridgeRetry();
+    }
+  }
+
+  function scheduleBridgeRetry() {
+    setTimeout(() => {
+      if (!bridgeReady) {
+        setupBridgeSocket();
+      }
+    }, 3000);
+  }
+
+  function flushBridgeQueue() {
+    if (
+      bridgeQueue.length > 0 &&
+      bridgeReady &&
+      bridgeSocket &&
+      bridgeSocket.readyState === WebSocket.OPEN
+    ) {
+      bridgeQueue.forEach((message) => {
+        bridgeSocket.send(message);
+      });
+      bridgeQueue = [];
+    }
+  }
+
+  function sendToBridge(payload) {
+    const message = JSON.stringify(payload);
+    if (
+      bridgeReady &&
+      bridgeSocket &&
+      bridgeSocket.readyState === WebSocket.OPEN
+    ) {
+      bridgeSocket.send(message);
+    } else {
+      bridgeQueue.push(message);
+      setupBridgeSocket();
+    }
+  }
+
+  function handleBridgeMessage(payload) {
+    if (payload.type === "skip-base-skin") {
+      handleSkipBaseSkin(payload);
+    }
+  }
+
+  function handleSkipBaseSkin(payload) {
+    lastBaseSkinSkipRequest = Date.now();
+    log.info("received base skin skip request from rose");
+  }
 
   // Load bridge port with file-based discovery and localStorage caching
   async function loadBridgePort() {
@@ -179,6 +275,57 @@
     }
   }
 
+  // TODO Preferably move bridge communication logic and websocket interception to a separate Pengu plugin like ROSE-CORE,
+  // which provides a simple interface for adding custom observers for bridge and socket instead of duplicating this kind
+  // of code over all the plugins; this will do for now though
+  function interceptChampSelectWebsocket() {
+    window.rcp.postInit("rcp-fe-lol-champ-select", (api) => {
+      try {
+        const ws = api.champSelectBinding.socket._websocket;
+        const parentOnMessage = ws.onmessage;
+
+        ws.onmessage = function (event) {
+          try {
+            const payload = JSON.parse(event.data);
+            if (payload[1] == "OnJsonApiEvent") {
+              const eventData = payload[2];
+              if (eventData["uri"] == "/lol-champ-select/v1/skin-selector-info") {
+                // // **Bridge-less implementation** (don't use: bridge implementation is more reliable)
+                //
+                // const data = eventData["data"];
+                // 
+                // data is null in event type DELETE
+                // check if base skin
+                // if (data?.["selectedSkinId"] % 1000 == 0) {
+                //   log.info("skipping base skin");
+                //   // skip delegation
+                //   return;
+                // }
+
+                // Not a DELETE event
+                if (eventData["data"]?.["selectedSkinId"] != 0) {
+                  if (Date.now() - lastBaseSkinSkipRequest < BASE_SKIN_SKIP_REQUEST_TIME_WINDOW_MS) {
+                    log.info("skipping base skin");
+                    // skip delegation
+                    return;
+                  } else {
+                    log.info("not skipping base skin: no request received from rose (in time)");
+                  }
+                }
+              }
+            }
+
+            return parentOnMessage.call(this, event);
+          } catch(e) {
+            log.error("Error during WebSocket response parse: ", e);
+          }
+        };
+        log.info("Websocket Interception successful");
+      } catch (e) {
+        log.error("Failed WebSocket interception: ", e);
+      }
+    });
+  }
 
   const INLINE_RULES = `
     lol-uikit-navigation-item.menu_item_Golden\\ Rose {
@@ -364,6 +511,7 @@
   const log = {
     info: (msg, extra) => console.info(`${LOG_PREFIX} ${msg}`, extra ?? ""),
     warn: (msg, extra) => console.warn(`${LOG_PREFIX} ${msg}`, extra ?? ""),
+    error: (msg, extra) => console.error(`${LOG_PREFIX} ${msg}`, extra ?? ""),
   };
 
   function resolveStylesheetHref() {
@@ -875,10 +1023,13 @@
         return;
       }
     }
+    
     try {
       // Load bridge port before initializing
       await loadBridgePort();
 
+      setupBridgeSocket();
+      interceptChampSelectWebsocket();
       attachStylesheet();
       scanSkinSelection();
       setupSkinObserver();
