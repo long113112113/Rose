@@ -19,8 +19,6 @@ pub async fn handle_connection(stream: TcpStream, gossip: Gossip, my_node_id: St
         }
     };
 
-    info!("New WebSocket connection");
-
     let (ws_sender, mut ws_receiver) = ws_stream.split();
 
     // State
@@ -76,30 +74,84 @@ pub async fn handle_connection(stream: TcpStream, gossip: Gossip, my_node_id: St
                                     Ok(sub) => {
                                         _current_topic = Some(topic_id);
                                         let (sender, mut stream) = sub.split();
-                                        current_topic_sender = Some(sender);
+                                        current_topic_sender = Some(sender.clone());
 
                                         // Handle receiver
                                         let tx_clone = to_client_tx.clone();
+                                        let my_node_id_clone = my_node_id.clone();
+                                        let sender_clone = sender.clone();
                                         let handle = tokio::spawn(async move {
                                             while let Some(event_res) = stream.next().await {
-                                                if let Ok(iroh_gossip::api::Event::Received(msg)) =
-                                                    event_res
-                                                {
-                                                    if let Ok(gossip_msg) =
-                                                        serde_json::from_slice::<GossipMessage>(
-                                                            &msg.content,
-                                                        )
-                                                    {
+                                                match event_res {
+                                                    Ok(iroh_gossip::api::Event::Received(msg)) => {
+                                                        if let Ok(gossip_msg) =
+                                                            serde_json::from_slice::<GossipMessage>(
+                                                                &msg.content,
+                                                            )
+                                                        {
+                                                            match gossip_msg {
+                                                                GossipMessage::SkinUpdate {
+                                                                    peer_id,
+                                                                    skin_id,
+                                                                    champion_id,
+                                                                    skin_name,
+                                                                    is_custom,
+                                                                } => {
+                                                                    let _ = tx_clone.send(ServerMessage::RemoteSkinUpdate {
+                                                                        peer_id: peer_id.clone(),
+                                                                        skin_id,
+                                                                        champion_id,
+                                                                        skin_name,
+                                                                        is_custom
+                                                                    }).await;
+                                                                    let ack =
+                                                                        GossipMessage::SkinAck {
+                                                                            target_peer_id: peer_id,
+                                                                        };
+                                                                    if let Ok(json) =
+                                                                        serde_json::to_vec(&ack)
+                                                                    {
+                                                                        sender_clone
+                                                                            .broadcast(Bytes::from(
+                                                                                json,
+                                                                            ))
+                                                                            .await
+                                                                            .ok();
+                                                                    }
+                                                                }
+                                                                GossipMessage::SkinAck {
+                                                                    target_peer_id,
+                                                                } => {
+                                                                    if target_peer_id
+                                                                        == my_node_id_clone
+                                                                    {
+                                                                        let _ = tx_clone.send(ServerMessage::SyncConfirmed {
+                                                                            peer_id: msg.delivered_from.to_string(),
+                                                                        }).await;
+                                                                    }
+                                                                }
+                                                            }
+                                                        }
+                                                    }
+                                                    Ok(iroh_gossip::api::Event::NeighborUp(
+                                                        peer_id,
+                                                    )) => {
                                                         let _ = tx_clone
-                                                            .send(ServerMessage::RemoteSkinUpdate {
-                                                                peer_id: gossip_msg.peer_id,
-                                                                skin_id: gossip_msg.skin_id,
-                                                                champion_id: gossip_msg.champion_id,
+                                                            .send(ServerMessage::PeerJoined {
+                                                                peer_id: peer_id.to_string(),
                                                             })
                                                             .await;
                                                     }
-                                                } else {
-                                                    break;
+                                                    Ok(iroh_gossip::api::Event::NeighborDown(
+                                                        peer_id,
+                                                    )) => {
+                                                        let _ = tx_clone
+                                                            .send(ServerMessage::PeerLeft {
+                                                                peer_id: peer_id.to_string(),
+                                                            })
+                                                            .await;
+                                                    }
+                                                    _ => {}
                                                 }
                                             }
                                         });
@@ -134,28 +186,94 @@ pub async fn handle_connection(stream: TcpStream, gossip: Gossip, my_node_id: St
                                         Ok(sub) => {
                                             _current_topic = Some(topic_id);
                                             let (sender, mut stream) = sub.split();
-                                            current_topic_sender = Some(sender);
+                                            current_topic_sender = Some(sender.clone());
 
                                             let tx_clone = to_client_tx.clone();
+                                            let my_node_id_clone = my_node_id.clone();
+                                            let sender_clone = sender.clone();
                                             let handle = tokio::spawn(async move {
                                                 while let Some(event_res) = stream.next().await {
-                                                    if let Ok(iroh_gossip::api::Event::Received(
-                                                        msg,
-                                                    )) = event_res
-                                                    {
-                                                        if let Ok(gossip_msg) =
-                                                            serde_json::from_slice::<GossipMessage>(
-                                                                &msg.content,
-                                                            )
-                                                        {
-                                                            let _ = tx_clone.send(ServerMessage::RemoteSkinUpdate {
-                                                                    peer_id: gossip_msg.peer_id,
-                                                                    skin_id: gossip_msg.skin_id,
-                                                                    champion_id: gossip_msg.champion_id
-                                                                }).await;
+                                                    match event_res {
+                                                        Ok(iroh_gossip::api::Event::Received(
+                                                            msg,
+                                                        )) => {
+                                                            if let Ok(gossip_msg) =
+                                                                serde_json::from_slice::<
+                                                                    GossipMessage,
+                                                                >(
+                                                                    &msg.content
+                                                                )
+                                                            {
+                                                                match gossip_msg {
+                                                                    GossipMessage::SkinUpdate {
+                                                                        peer_id,
+                                                                        skin_id,
+                                                                        champion_id,
+                                                                        skin_name,
+                                                                        is_custom,
+                                                                    } => {
+                                                                        // Show in UI
+                                                                        let _ = tx_clone.send(ServerMessage::RemoteSkinUpdate {
+                                                                        peer_id: peer_id.clone(),
+                                                                        skin_id,
+                                                                        champion_id,
+                                                                        skin_name,
+                                                                        is_custom
+                                                                    }).await;
+
+                                                                        // AUTO ACK
+                                                                        let ack = GossipMessage::SkinAck { target_peer_id: peer_id };
+                                                                        if let Ok(json) =
+                                                                            serde_json::to_vec(&ack)
+                                                                        {
+                                                                            sender_clone
+                                                                                .broadcast(
+                                                                                    Bytes::from(
+                                                                                        json,
+                                                                                    ),
+                                                                                )
+                                                                                .await
+                                                                                .ok();
+                                                                        }
+                                                                    }
+                                                                    GossipMessage::SkinAck {
+                                                                        target_peer_id,
+                                                                    } => {
+                                                                        // If this ACK is for ME, tell Python
+                                                                        if target_peer_id
+                                                                            == my_node_id_clone
+                                                                        {
+                                                                            let _ = tx_clone.send(ServerMessage::SyncConfirmed {
+                                                                            peer_id: msg.delivered_from.to_string(),
+                                                                        }).await;
+                                                                        }
+                                                                    }
+                                                                }
+                                                            }
                                                         }
-                                                    } else {
-                                                        break;
+                                                        Ok(
+                                                            iroh_gossip::api::Event::NeighborUp(
+                                                                peer_id,
+                                                            ),
+                                                        ) => {
+                                                            let _ = tx_clone
+                                                                .send(ServerMessage::PeerJoined {
+                                                                    peer_id: peer_id.to_string(),
+                                                                })
+                                                                .await;
+                                                        }
+                                                        Ok(
+                                                            iroh_gossip::api::Event::NeighborDown(
+                                                                peer_id,
+                                                            ),
+                                                        ) => {
+                                                            let _ = tx_clone
+                                                                .send(ServerMessage::PeerLeft {
+                                                                    peer_id: peer_id.to_string(),
+                                                                })
+                                                                .await;
+                                                        }
+                                                        _ => {}
                                                     }
                                                 }
                                             });
@@ -174,12 +292,16 @@ pub async fn handle_connection(stream: TcpStream, gossip: Gossip, my_node_id: St
                             ClientMessage::UpdateSkin {
                                 skin_id,
                                 champion_id,
+                                skin_name,
+                                is_custom,
                             } => {
                                 if let Some(sender) = &current_topic_sender {
-                                    let payload = GossipMessage {
+                                    let payload = GossipMessage::SkinUpdate {
                                         peer_id: my_node_id.clone(),
                                         skin_id,
                                         champion_id,
+                                        skin_name,
+                                        is_custom,
                                     };
                                     if let Ok(json) = serde_json::to_vec(&payload) {
                                         sender.broadcast(Bytes::from(json)).await.ok();

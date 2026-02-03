@@ -170,6 +170,18 @@ class PenguSkinMonitorThread(threading.Thread):
     def _broadcast_skip_base_skin(self) -> None:
         self.broadcaster.broadcast_skip_base_skin()
     
+    def _broadcast_peer_update(self, payload: dict) -> None:
+        """Broadcast peer update (delegates to broadcaster)"""
+        self.broadcaster.broadcast_peer_update(payload)
+    
+    def _broadcast_p2p_connection_state(self, is_connected: bool, peer_count: int, party_id: Optional[str] = None) -> None:
+        """Broadcast P2P connection state (delegates to broadcaster)"""
+        self.broadcaster.broadcast_p2p_connection_state(is_connected, peer_count, party_id)
+
+    def _broadcast_peer_ack(self, sender_peer_id: str, target_peer_id: str) -> None:
+        """Broadcast peer ACK (delegates to broadcaster)"""
+        self.broadcaster.broadcast_peer_ack(sender_peer_id, target_peer_id)
+    
     # Backward compatibility properties
     @property
     def ready_event(self) -> threading.Event:

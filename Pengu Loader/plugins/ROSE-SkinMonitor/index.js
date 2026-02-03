@@ -379,6 +379,20 @@ function setupBridgeSocket() {
       return;
     }
 
+    if (data && data.type === "peer-ack") {
+      window.dispatchEvent(
+        new CustomEvent("rose-p2p-ack", { detail: data })
+      );
+      return;
+    }
+
+    if (data && data.type === "p2p-connection-state") {
+      window.dispatchEvent(
+        new CustomEvent("rose-p2p-connection-state", { detail: data })
+      );
+      return;
+    }
+
     console.log(`${LOG_PREFIX} Bridge message: ${event.data}`);
   });
 

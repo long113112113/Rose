@@ -316,7 +316,7 @@
             }
 
             return parentOnMessage.call(this, event);
-          } catch(e) {
+          } catch (e) {
             log.error("Error during WebSocket response parse: ", e);
           }
         };
@@ -505,7 +505,46 @@
       display: none !important;
       pointer-events: none !important;
     }
-
+    
+    .rose-sync-progress-container {
+      position: absolute;
+      bottom: 80px;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 200px;
+      height: 4px;
+      background: rgba(0, 0, 0, 0.5);
+      border-radius: 2px;
+      overflow: hidden;
+      z-index: 1000;
+      opacity: 0;
+      transition: opacity 0.3s;
+      pointer-events: none;
+    }
+    
+    .rose-sync-progress-bar {
+      width: 0%;
+      height: 100%;
+      background: linear-gradient(90deg, #c8aa6e, #c89b3c);
+      box-shadow: 0 0 8px rgba(200, 155, 60, 0.6);
+      transition: width 0.3s ease-out;
+    }
+    
+    .rose-sync-status-text {
+      position: absolute;
+      bottom: 90px;
+      left: 50%;
+      transform: translateX(-50%);
+      font-size: 11px;
+      color: #cdbe91;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      text-shadow: 0 0 4px rgba(0, 0, 0, 0.8);
+      z-index: 1000;
+      opacity: 0;
+      transition: opacity 0.3s;
+      pointer-events: none;
+    }
   `;
 
   const log = {
@@ -961,6 +1000,153 @@
     }, 30000);
   }
 
+  let p2pState = {
+    connected: false,
+    peerCount: 0,
+    acksReceived: 0,
+    currentSkinId: null,
+    syncInProgress: false
+  };
+
+  function setupP2PStatusListener() {
+    window.addEventListener("rose-p2p-connection-state", (e) => {
+      const { connected, peerCount } = e.detail;
+      p2pState.connected = connected;
+      p2pState.peerCount = peerCount;
+      updateP2PStatusUI();
+    });
+
+    window.addEventListener("rose-p2p-ack", (e) => {
+      if (p2pState.syncInProgress) {
+        p2pState.acksReceived++;
+        updateP2PSyncProgress();
+      }
+      flashP2PAck();
+    });
+
+    // Listen for skin changes to restart sync progress
+    window.addEventListener("lu-skin-monitor-state", (e) => {
+      const { skinId } = e.detail;
+      if (skinId !== p2pState.currentSkinId) {
+        p2pState.currentSkinId = skinId;
+        if (p2pState.peerCount > 0) {
+          p2pState.acksReceived = 0;
+          p2pState.syncInProgress = true;
+          updateP2PSyncProgress();
+        }
+      }
+    });
+
+    // Create sync UI elements
+    createSyncUI();
+  }
+
+  function createSyncUI() {
+    if (document.querySelector('.rose-sync-progress-container')) return;
+
+    const container = document.createElement('div');
+    container.className = 'rose-sync-progress-container';
+    const bar = document.createElement('div');
+    bar.className = 'rose-sync-progress-bar';
+    container.appendChild(bar);
+
+    const text = document.createElement('div');
+    text.className = 'rose-sync-status-text';
+    text.textContent = 'Syncing...';
+
+    document.body.appendChild(container);
+    document.body.appendChild(text);
+  }
+
+  function updateP2PSyncProgress() {
+    const container = document.querySelector('.rose-sync-progress-container');
+    const bar = document.querySelector('.rose-sync-progress-bar');
+    const text = document.querySelector('.rose-sync-status-text');
+
+    if (!container || !bar || !text) return;
+
+    if (p2pState.syncInProgress && p2pState.peerCount > 0) {
+      const progress = Math.min(100, (p2pState.acksReceived / p2pState.peerCount) * 100);
+      bar.style.width = `${progress}%`;
+      text.textContent = `Syncing... ${p2pState.acksReceived}/${p2pState.peerCount}`;
+
+      container.style.opacity = '1';
+      text.style.opacity = '1';
+
+      if (progress >= 100) {
+        text.textContent = 'Synced';
+        bar.style.background = '#4CAF50';
+        setTimeout(() => {
+          if (p2pState.acksReceived >= p2pState.peerCount) {
+            container.style.opacity = '0';
+            text.style.opacity = '0';
+            p2pState.syncInProgress = false;
+            // Reset bar color for next use
+            setTimeout(() => {
+              bar.style.width = '0%';
+              bar.style.background = 'linear-gradient(90deg, #c8aa6e, #c89b3c)';
+            }, 300);
+          }
+        }, 1500);
+      }
+    } else {
+      container.style.opacity = '0';
+      text.style.opacity = '0';
+    }
+  }
+
+  function updateP2PStatusUI() {
+    const { connected, peerCount } = p2pState;
+    const navItem = document.querySelector(".menu_item_Golden.Rose"); // Note the space in class name from injection
+    if (!navItem) return;
+
+    let statusEl = navItem.querySelector(".rose-p2p-status");
+    if (!statusEl) {
+      statusEl = document.createElement("div");
+      statusEl.className = "rose-p2p-status";
+      statusEl.style.cssText = `
+        position: absolute;
+        bottom: 2px;
+        right: 2px;
+        font-size: 10px;
+        color: #cdbe91;
+        background: rgba(0,0,0,0.7);
+        padding: 1px 3px;
+        border-radius: 4px;
+        pointer-events: none;
+        display: flex;
+        align-items: center;
+        gap: 2px;
+      `;
+      navItem.appendChild(statusEl);
+    }
+
+    const dotColor = connected ? "#4CAF50" : "#F44336";
+    statusEl.innerHTML = `
+      <span style="width:6px;height:6px;border-radius:50%;background:${dotColor};display:inline-block;"></span>
+      <span>${peerCount || 0}</span>
+    `;
+
+    // Add tooltip behavior to navItem if not present (handled by existing listener generally, but update title?)
+    navItem.title = connected ? `P2P Connected: ${peerCount} peers` : "P2P Disconnected";
+  }
+
+  function flashP2PAck() {
+    const navItem = document.querySelector(".menu_item_Golden.Rose");
+    if (!navItem) return;
+
+    const statusEl = navItem.querySelector(".rose-p2p-status");
+    if (statusEl) {
+      statusEl.style.transition = "transform 0.2s, color 0.2s";
+      statusEl.style.transform = "scale(1.2)";
+      statusEl.style.color = "#4CAF50";
+      setTimeout(() => {
+        statusEl.style.transform = "scale(1)";
+        statusEl.style.color = "#cdbe91";
+      }, 500);
+    }
+  }
+
   let _initializing = false;
   let _initialized = false;
   let _retryCount = 0;
@@ -1023,7 +1209,7 @@
         return;
       }
     }
-    
+
     try {
       // Load bridge port before initializing
       await loadBridgePort();
@@ -1034,6 +1220,7 @@
       scanSkinSelection();
       setupSkinObserver();
       setupNavObserver();
+      setupP2PStatusListener();
       log.info("skin preview overrides active");
       _initialized = true;
       _retryCount = 0; // Reset retry counter on success

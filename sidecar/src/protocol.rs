@@ -5,27 +5,37 @@ use serde::{Deserialize, Serialize};
 pub enum ClientMessage {
     CreateTicket,
     JoinTicket(String),
-    UpdateSkin { skin_id: u32, champion_id: u32 },
+    UpdateSkin {
+        skin_id: u32,
+        champion_id: u32,
+        skin_name: String,
+        is_custom: bool,
+    },
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(tag = "event", content = "data")]
 pub enum ServerMessage {
     TicketCreated(String),
-    #[allow(dead_code)]
     PeerJoined {
         peer_id: String,
     },
-    #[allow(dead_code)]
+    PeerLeft {
+        peer_id: String,
+    },
     RemoteSkinUpdate {
         peer_id: String,
         skin_id: u32,
         champion_id: u32,
+        skin_name: String,
+        is_custom: bool,
+    },
+    SyncConfirmed {
+        peer_id: String,
     },
     Error {
         message: String,
     },
-    #[allow(dead_code)]
     Log {
         level: String,
         message: String,
@@ -33,8 +43,16 @@ pub enum ServerMessage {
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
-pub struct GossipMessage {
-    pub peer_id: String,
-    pub skin_id: u32,
-    pub champion_id: u32,
+#[serde(tag = "type", content = "data")]
+pub enum GossipMessage {
+    SkinUpdate {
+        peer_id: String,
+        skin_id: u32,
+        champion_id: u32,
+        skin_name: String,
+        is_custom: bool,
+    },
+    SkinAck {
+        target_peer_id: String,
+    },
 }

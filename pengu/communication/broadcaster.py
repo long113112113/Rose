@@ -277,6 +277,50 @@ class Broadcaster:
         )
 
         self._send_message(json.dumps(payload))
+
+    def broadcast_p2p_connection_state(self, is_connected: bool, peer_count: int, party_id: Optional[str] = None) -> None:
+        """Broadcast P2P connection status to JavaScript plugins"""
+        if not self.websocket_server.loop or not self.websocket_server.connections:
+            return
+
+        payload = {
+            "type": "p2p-connection-state",
+            "connected": is_connected,
+            "peerCount": peer_count,
+            "partyId": party_id,
+            "timestamp": int(time.time() * 1000)
+        }
+        
+        log.debug(f"[SkinMonitor] Broadcasting P2P connection state: {payload}")
+        self._send_message(json.dumps(payload))
+
+    def broadcast_peer_ack(self, sender_peer_id: str, target_peer_id: str) -> None:
+        """Broadcast sync ACK to JavaScript plugins"""
+        if not self.websocket_server.loop or not self.websocket_server.connections:
+            return
+
+        payload = {
+            "type": "peer-ack",
+            "senderPeerId": sender_peer_id,
+            "targetPeerId": target_peer_id,
+            "timestamp": int(time.time() * 1000)
+        }
+        
+        log.debug(f"[SkinMonitor] Broadcasting peer ACK: {payload}")
+        self._send_message(json.dumps(payload))
+
+    def broadcast_peer_update(self, payload: dict) -> None:
+        """Broadcast peer skin update to JavaScript plugins"""
+        if not self.websocket_server.loop or not self.websocket_server.connections:
+            return
+        
+        # Ensure type is set
+        message = dict(payload)
+        message["type"] = "peer-skin-update"
+        message["timestamp"] = int(time.time() * 1000)
+        
+        log.debug(f"[SkinMonitor] Broadcasting peer update: {message}")
+        self._send_message(json.dumps(message))
     
     def _send_message(self, message: str) -> None:
         """Send message to all connected clients"""
