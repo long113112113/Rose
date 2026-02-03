@@ -158,7 +158,15 @@ class UpdateSequence:
         if dev_mode:
             status_callback("Update skipped (dev mode)")
             return False
-        
+            
+        if remote_version:
+            msg = f"Update available: {remote_version}. Auto-update disabled."
+            status_callback(msg)
+            updater_log.info(msg)
+            import time
+            time.sleep(1.5)
+            return False
+        """
         # Download update
         updates_root = config_path.parent / "updates"
         updates_root.mkdir(parents=True, exist_ok=True)
@@ -241,4 +249,6 @@ class UpdateSequence:
         status_callback("Update installed")
         updater_log.info(f"Auto-update completed. Update installed: True")
         return True
+        """
+        return False
 
