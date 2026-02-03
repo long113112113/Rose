@@ -59,6 +59,9 @@ class InjectionTrigger:
             log.error("=" * LOG_SEPARATOR_WIDTH)
             return
         
+        # Determine owned skins early
+        owned_skin_ids = self.state.owned_skin_ids
+        
         # Mark that we've processed the last hovered skin
         self.state.last_hover_written = True
 
