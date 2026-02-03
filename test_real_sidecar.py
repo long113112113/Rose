@@ -4,8 +4,6 @@ import websockets
 import json
 import sys
 import os
-import argparse
-import hashlib
 from pathlib import Path
 
 # Configuration
@@ -13,20 +11,43 @@ IS_WINDOWS = sys.platform == "win32"
 BIN_NAME = "sidecar.exe" if IS_WINDOWS else "sidecar"
 WS_URI = "ws://127.0.0.1:13337"
 
-# Hardcoded test ticket (64 hex chars) for real testing
-# All clients using this ticket will join the same P2P room
-TEST_TICKET = "dd56d3021d6cfb0dc8b6aa8b2f84352451cd2dbb6d77e5ff30168c11de9d5944"
+# =====================================================================
+# HARDCODED TICKET - Tất cả instance đều dùng chung ticket này
+# =====================================================================
+HARDCODED_TICKET = "dd56d3021d6cfb0dc8b6aa8b2f84352451cd2dbb6d77e5ff30168c11de9d5944"
 
-# Response Payload for auto-reply
-BRAUM_PAYLOAD = {
-    "action": "UpdateSkin",
-    "payload": {
-        "champion_id": 201,
-        "skin_id": 201042,
-        "skin_name": "Braum Bán Kebab",
-        "is_custom": False
-    }
-}
+# =====================================================================
+# DEMO SKIN PAYLOADS - Các skin để test
+# =====================================================================
+DEMO_SKINS = [
+    {
+        "action": "UpdateSkin",
+        "payload": {
+            "champion_id": 201,
+            "skin_id": 201042,
+            "skin_name": "Braum Bán Kebab",
+            "is_custom": False
+        }
+    },
+    {
+        "action": "UpdateSkin",
+        "payload": {
+            "champion_id": 103,
+            "skin_id": 103015,
+            "skin_name": "Ahri Spirit Blossom",
+            "is_custom": False
+        }
+    },
+    {
+        "action": "UpdateSkin",
+        "payload": {
+            "champion_id": 157,
+            "skin_id": 157011,
+            "skin_name": "Yasuo Nightbringer",
+            "is_custom": False
+        }
+    },
+]
 
 # Search paths for sidecar binary
 SEARCH_PATHS = [
@@ -36,32 +57,37 @@ SEARCH_PATHS = [
     Path(BIN_NAME)
 ]
 
-def hash_to_ticket(value: str) -> str:
-    """Hash any string (partyId, room name, etc.) to 64-char hex ticket"""
-    return hashlib.sha256(value.encode()).hexdigest()
 
 def print_separator():
-    print("=" * 60)
+    print("=" * 70)
+
 
 def print_header(mode: str, ticket: str = None):
     print_separator()
-    print(" ROSE P2P TEST CLIENT ")
-    print(f" Mode: {mode}")
+    print("          🌹 ROSE P2P SIDECAR TEST 🌹")
+    print(f"          Mode: {mode.upper()}")
     if ticket:
-        print(f" Ticket: {ticket}")
+        print(f"          Ticket: {ticket[:32]}...")
     print_separator()
+
+
+def print_menu():
+    print_separator()
+    print("          🌹 ROSE P2P SIDECAR TEST MENU 🌹")
+    print_separator()
+    print("\n  Chọn mode chạy:\n")
+    print("    [1] HOST     - Tạo room và broadcast skin liên tục")
+    print("    [2] DEFAULT  - Join room và lắng nghe skin từ Host")
+    print("    [0] EXIT     - Thoát\n")
+    print_separator()
+
 
 async def create_room_flow(ws):
     """Create a new room and wait for peers to join"""
-    
-    print_header("CREATE ROOM")
-    
-    # 1. Create Ticket
-    print("[ACTION] Creating new room...")
+    print("\n[ACTION] Đang tạo room mới...")
     create_msg = {"action": "CreateTicket", "payload": None}
     await ws.send(json.dumps(create_msg))
     
-    # 2. Wait for TicketCreated response
     try:
         response = await asyncio.wait_for(ws.recv(), timeout=10.0)
         data = json.loads(response)
@@ -69,34 +95,30 @@ async def create_room_flow(ws):
         
         if event_type == "TicketCreated":
             ticket = data.get("data")
-            print(f"\n[SUCCESS] Room created!")
-            print(f"[TICKET] {ticket}")
-            print(f"\n>>> Share this ticket with your teammates! <<<\n")
+            print(f"\n✅ [SUCCESS] Room đã tạo!")
+            print(f"   Ticket: {ticket}")
             return ticket
         elif event_type == "Error":
             message = data.get("data", {}).get("message", "Unknown error")
-            print(f"[ERROR] Failed to create room: {message}")
+            print(f"❌ [ERROR] Không thể tạo room: {message}")
             return None
         else:
-            print(f"[WARN] Unexpected response: {event_type}")
-            print(f"[DATA] {data}")
+            print(f"⚠️ [WARN] Unexpected response: {event_type}")
             return None
             
     except asyncio.TimeoutError:
-        print("[ERROR] Timeout waiting for room creation!")
+        print("❌ [ERROR] Timeout khi chờ tạo room!")
         return None
+
 
 async def join_room_flow(ws, ticket: str):
     """Join an existing room with a ticket"""
+    print(f"\n[ACTION] Đang join room...")
+    print(f"         Ticket: {ticket}")
     
-    print_header("JOIN ROOM", ticket)
-    
-    # 1. Join Ticket
-    print(f"[ACTION] Joining room...")
     join_msg = {"action": "JoinTicket", "payload": ticket}
     await ws.send(json.dumps(join_msg))
     
-    # 2. Wait for confirmation
     try:
         response = await asyncio.wait_for(ws.recv(), timeout=10.0)
         data = json.loads(response)
@@ -104,34 +126,135 @@ async def join_room_flow(ws, ticket: str):
         
         if event_type == "JoinedRoom":
             joined_ticket = data.get("data", {}).get("ticket", "")
-            print(f"[SUCCESS] Joined room: {joined_ticket}")
+            print(f"\n✅ [SUCCESS] Đã join room: {joined_ticket[:32]}...")
             return True
         elif event_type == "InvalidTicket":
             reason = data.get("data", {}).get("reason", "Unknown")
-            print(f"[ERROR] Invalid ticket!")
-            print(f"[REASON] {reason}")
+            print(f"❌ [ERROR] Ticket không hợp lệ: {reason}")
             return False
         elif event_type == "Error":
             message = data.get("data", {}).get("message", "Unknown error")
-            print(f"[ERROR] {message}")
+            print(f"❌ [ERROR] {message}")
             return False
         else:
-            print(f"[WARN] Unexpected response: {event_type}")
-            # Continue anyway
+            print(f"⚠️ [INFO] Response: {event_type}")
             return True
             
     except asyncio.TimeoutError:
-        print("[ERROR] Timeout waiting for join confirmation!")
+        print("❌ [ERROR] Timeout khi chờ join room!")
         return False
 
-async def listen_loop(ws, auto_reply: bool = True):
-    """Main event loop - listen for P2P events"""
+
+async def host_mode(ws):
+    """HOST mode - Tạo room hoặc join room, sau đó broadcast skin liên tục"""
     
-    print("\n[LISTENING] Waiting for P2P events...")
-    print("  - PeerJoined: When a teammate joins")
-    print("  - RemoteSkinUpdate: When someone injects a skin")
-    print("  - SyncConfirmed: When your skin was received")
-    print("\nPress Ctrl+C to exit.\n")
+    print_header("HOST", HARDCODED_TICKET)
+    
+    # Join room với ticket cứng
+    success = await join_room_flow(ws, HARDCODED_TICKET)
+    if not success:
+        print("⚠️ [WARN] Join thất bại, thử tạo room mới...")
+        ticket = await create_room_flow(ws)
+        if not ticket:
+            return
+    
+    print("\n" + "=" * 70)
+    print("  🎮 HOST MODE - BROADCASTING SKINS")
+    print("=" * 70)
+    print("\n  Host sẽ broadcast skin mỗi 5 giây để test P2P sync")
+    print("  Nhấn Ctrl+C để dừng.\n")
+    
+    skin_index = 0
+    broadcast_count = 0
+    
+    # Tạo task để lắng nghe events
+    async def listen_events():
+        try:
+            async for message in ws:
+                try:
+                    data = json.loads(message)
+                    event_type = data.get("event")
+                    payload = data.get("data", {})
+                    
+                    if event_type == "PeerJoined":
+                        peer_id = payload.get("peer_id", "Unknown")[:16]
+                        print(f"\n  🟢 [PEER+] Teammate mới tham gia: {peer_id}...")
+                        
+                    elif event_type == "PeerLeft":
+                        peer_id = payload.get("peer_id", "Unknown")[:16]
+                        print(f"\n  🔴 [PEER-] Teammate đã rời: {peer_id}...")
+                        
+                    elif event_type == "RemoteSkinUpdate":
+                        skin_name = payload.get("skin_name", "Unknown")
+                        skin_id = payload.get("skin_id")
+                        champion_id = payload.get("champion_id")
+                        peer_id = payload.get("peer_id", "")[:16]
+                        print(f"\n  📨 [RX] Nhận skin từ {peer_id}...")
+                        print(f"      Champion: {champion_id}")
+                        print(f"      Skin: {skin_name} (ID: {skin_id})")
+                        
+                    elif event_type == "SyncConfirmed":
+                        peer_id = payload.get("peer_id", "Unknown")[:16]
+                        print(f"\n  ✅ [ACK] {peer_id}... đã nhận skin của bạn")
+                        
+                    elif event_type == "Log":
+                        level = payload.get("level", "INFO")
+                        message = payload.get("message", "")
+                        if level != "DEBUG":
+                            print(f"  [{level}] {message}")
+                            
+                except json.JSONDecodeError:
+                    pass
+        except:
+            pass
+    
+    # Start listener
+    listener = asyncio.create_task(listen_events())
+    
+    try:
+        while True:
+            # Gửi skin
+            skin = DEMO_SKINS[skin_index % len(DEMO_SKINS)]
+            skin_info = skin["payload"]
+            
+            print(f"\n  📤 [TX #{broadcast_count + 1}] Broadcasting skin...")
+            print(f"      Champion ID: {skin_info['champion_id']}")
+            print(f"      Skin ID: {skin_info['skin_id']}")
+            print(f"      Skin Name: {skin_info['skin_name']}")
+            
+            await ws.send(json.dumps(skin))
+            
+            broadcast_count += 1
+            skin_index += 1
+            
+            # Đợi 5 giây trước khi gửi skin tiếp theo
+            await asyncio.sleep(5)
+            
+    except asyncio.CancelledError:
+        pass
+    finally:
+        listener.cancel()
+
+
+async def default_mode(ws):
+    """DEFAULT mode - Join room và lắng nghe skin updates"""
+    
+    print_header("DEFAULT (CLIENT)", HARDCODED_TICKET)
+    
+    # Join room với ticket cứng
+    success = await join_room_flow(ws, HARDCODED_TICKET)
+    if not success:
+        print("❌ Không thể join room. Đảm bảo Host đang chạy.")
+        return
+    
+    print("\n" + "=" * 70)
+    print("  👀 DEFAULT MODE - LISTENING FOR SKINS")
+    print("=" * 70)
+    print("\n  Client đang lắng nghe skin updates từ Host...")
+    print("  Sẽ tự động reply skin khi nhận được update")
+    print("  Nhấn Ctrl+C để dừng.\n")
+    
+    received_count = 0
     
     try:
         async for message in ws:
@@ -142,168 +265,179 @@ async def listen_loop(ws, auto_reply: bool = True):
                 
                 if event_type == "PeerJoined":
                     peer_id = payload.get("peer_id", "Unknown")[:16]
-                    print(f"[PEER+] Teammate joined: {peer_id}...")
+                    print(f"\n  🟢 [PEER+] Teammate tham gia: {peer_id}...")
                     
                 elif event_type == "PeerLeft":
                     peer_id = payload.get("peer_id", "Unknown")[:16]
-                    print(f"[PEER-] Teammate left: {peer_id}...")
+                    print(f"\n  🔴 [PEER-] Teammate rời đi: {peer_id}...")
                     
                 elif event_type == "RemoteSkinUpdate":
+                    received_count += 1
                     skin_name = payload.get("skin_name", "Unknown")
                     skin_id = payload.get("skin_id")
                     champion_id = payload.get("champion_id")
+                    is_custom = payload.get("is_custom", False)
                     peer_id = payload.get("peer_id", "")[:16]
                     
-                    print(f"\n>>> SKIN BROADCAST FROM {peer_id}...")
-                    print(f"    Champion: {champion_id}")
-                    print(f"    Skin: {skin_name} (ID: {skin_id})")
+                    print(f"\n  {'=' * 50}")
+                    print(f"  📨 [RX #{received_count}] SKIN UPDATE từ {peer_id}...")
+                    print(f"  {'=' * 50}")
+                    print(f"      champion_id: {champion_id}")
+                    print(f"      skin_id:     {skin_id}")
+                    print(f"      skin_name:   {skin_name}")
+                    print(f"      is_custom:   {is_custom}")
+                    print(f"  {'=' * 50}")
                     
-                    if auto_reply:
-                        print("[AUTO] Sending reply skin in 1 second...")
-                        await asyncio.sleep(1)
-                        await ws.send(json.dumps(BRAUM_PAYLOAD))
-                        print("[TX] Sent: Braum Bán Kebab")
-                        
+                    # Auto reply với skin khác
+                    reply_index = received_count % len(DEMO_SKINS)
+                    reply_skin = DEMO_SKINS[reply_index]
+                    reply_info = reply_skin["payload"]
+                    
+                    print(f"\n  📤 [AUTO-REPLY] Gửi skin phản hồi...")
+                    print(f"      Champion: {reply_info['champion_id']}")
+                    print(f"      Skin: {reply_info['skin_name']}")
+                    
+                    await asyncio.sleep(1)  # Delay 1s trước khi reply
+                    await ws.send(json.dumps(reply_skin))
+                    
                 elif event_type == "SyncConfirmed":
                     peer_id = payload.get("peer_id", "Unknown")[:16]
-                    print(f"[ACK] {peer_id}... confirmed receiving your skin")
+                    print(f"\n  ✅ [ACK] {peer_id}... đã nhận skin của bạn")
                     
                 elif event_type == "Log":
                     level = payload.get("level", "INFO")
-                    message = payload.get("message", "")
-                    print(f"[{level}] {message}")
+                    msg = payload.get("message", "")
+                    if level in ["WARN", "ERROR"]:
+                        print(f"  [{level}] {msg}")
                     
                 else:
-                    print(f"[EVENT] {event_type}: {json.dumps(payload)}")
+                    # Show other events for debugging
+                    print(f"  [EVENT] {event_type}: {json.dumps(payload, ensure_ascii=False)}")
                     
             except json.JSONDecodeError:
-                print(f"[RAW] {message}")
+                print(f"  [RAW] {message}")
                 
     except websockets.exceptions.ConnectionClosed:
-        print("\n[DISCONNECTED] WebSocket connection closed.")
+        print("\n❌ [DISCONNECTED] WebSocket đã đóng.")
     except Exception as e:
-        print(f"\n[ERROR] {e}")
+        print(f"\n❌ [ERROR] {e}")
 
-async def send_test_skin(ws):
-    """Send a test skin broadcast"""
-    print("\n[ACTION] Broadcasting test skin...")
-    await ws.send(json.dumps(BRAUM_PAYLOAD))
-    print("[TX] Sent: Braum Bán Kebab")
 
-async def main():
-    parser = argparse.ArgumentParser(description="Rose P2P Sidecar Test Client")
-    parser.add_argument("--join", "-j", type=str, help="Join room (hex ticket or any string to hash)")
-    parser.add_argument("--create", "-c", action="store_true", help="Create new room")
-    parser.add_argument("--room", "-r", type=str, help="Join room by name (will be hashed)")
-    parser.add_argument("--test", "-t", action="store_true", help="Join the hardcoded TEST_TICKET")
-    parser.add_argument("--no-auto-reply", action="store_true", help="Disable auto-reply to skin updates")
-    parser.add_argument("--no-sidecar", action="store_true", help="Don't start sidecar (assume already running)")
-    args = parser.parse_args()
+async def start_sidecar():
+    """Find and start sidecar binary"""
+    sidecar_path = next((p for p in SEARCH_PATHS if p.exists()), None)
     
-    # Default to test mode if no args
-    if not args.join and not args.create and not args.room and not args.test:
-        print("No mode specified. Using --test by default.")
-        print("\nOptions:")
-        print("  python test_real_sidecar.py --test      # Join hardcoded test room")
-        print("  python test_real_sidecar.py --create    # Create random room")
-        print("  python test_real_sidecar.py --room Name # Join by room name")
-        args.test = True
+    if not sidecar_path:
+        print(f"\n❌ [ERROR] Không tìm thấy sidecar binary ({BIN_NAME})")
+        print("Đã tìm ở các đường dẫn:")
+        for p in SEARCH_PATHS:
+            print(f"    - {p}")
+        return None
+    
+    print(f"\n🚀 [LAUNCH] Khởi động sidecar: {sidecar_path}")
+    try:
+        process = subprocess.Popen(
+            [str(sidecar_path)],
+            cwd=os.getcwd(),
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL
+        )
+        print("⏳ [WAIT] Chờ sidecar kết nối relay network (3s)...")
+        await asyncio.sleep(3)
+        return process
+    except Exception as e:
+        print(f"❌ [ERROR] Không thể khởi động sidecar: {e}")
+        return None
 
+
+async def connect_websocket():
+    """Connect to sidecar WebSocket"""
+    print(f"\n🔌 [CONNECT] Kết nối WebSocket: {WS_URI}")
     
-    process = None
-    
-    # 1. Find and start sidecar
-    if not args.no_sidecar:
-        sidecar_path = next((p for p in SEARCH_PATHS if p.exists()), None)
-        
-        if not sidecar_path:
-            print(f"[ERROR] Could not find sidecar binary ({BIN_NAME})")
-            print("Checked paths:")
-            for p in SEARCH_PATHS:
-                print(f"  - {p}")
-            return
-        
-        print(f"[LAUNCH] Starting {sidecar_path}...")
-        try:
-            process = subprocess.Popen(
-                [str(sidecar_path)],
-                cwd=os.getcwd()
-            )
-        except Exception as e:
-            print(f"[ERROR] Failed to launch sidecar: {e}")
-            return
-        
-        # Wait for sidecar to start and connect to relay
-        print("[WAIT] Waiting for sidecar to connect to relay network...")
-        await asyncio.sleep(3)  # Give time for relay connection
-    
-    # 2. Connect to sidecar WebSocket
-    ws = None
     for attempt in range(5):
         try:
             ws = await websockets.connect(WS_URI, ping_interval=None)
-            print(f"[CONNECTED] WebSocket connected to {WS_URI}")
-            break
+            print("✅ [CONNECTED] WebSocket đã kết nối!")
+            return ws
         except Exception as e:
-            print(f"[RETRY] Connection attempt {attempt+1}/5 failed: {e}")
+            print(f"   Attempt {attempt+1}/5 failed: {e}")
             await asyncio.sleep(1)
     
-    if not ws:
-        print("[ERROR] Could not connect to sidecar WebSocket")
-        if process:
-            process.terminate()
-        return
+    print("❌ [ERROR] Không thể kết nối WebSocket")
+    return None
+
+
+async def main():
+    process = None
+    ws = None
     
-    try:
-        # 3. Create or Join room
-        if args.create:
-            ticket = await create_room_flow(ws)
-            if not ticket:
-                return
-        else:
-            # Determine ticket to join
-            if args.test:
-                ticket = TEST_TICKET
-                print(f"[INFO] Using hardcoded TEST_TICKET: {ticket}")
-            elif args.room:
-                # Hash room name to ticket
-                ticket = hash_to_ticket(args.room)
-                print(f"[INFO] Room name '{args.room}' -> ticket: {ticket}")
-            elif args.join and len(args.join) == 64 and all(c in '0123456789abcdefABCDEF' for c in args.join):
-                # Already a valid hex ticket
-                ticket = args.join.lower()
+    while True:
+        print_menu()
+        
+        try:
+            choice = input("  Nhập lựa chọn [1/2/0]: ").strip()
+        except (EOFError, KeyboardInterrupt):
+            print("\n👋 Goodbye!")
+            break
+        
+        if choice == "0":
+            print("\n👋 Goodbye!")
+            break
+        elif choice not in ["1", "2"]:
+            print("\n⚠️ Lựa chọn không hợp lệ. Thử lại.\n")
+            continue
+        
+        # Start sidecar if not running
+        if process is None:
+            process = await start_sidecar()
+            if process is None:
+                print("⚠️ Không thể khởi động sidecar. Thử lại.")
+                continue
+        
+        # Connect WebSocket
+        ws = await connect_websocket()
+        if ws is None:
+            print("⚠️ Không thể kết nối WebSocket. Kiểm tra sidecar.")
+            if process:
+                process.terminate()
+                process = None
+            continue
+        
+        try:
+            if choice == "1":
+                await host_mode(ws)
             else:
-                # Hash the input to create a ticket
-                ticket = hash_to_ticket(args.join) if args.join else TEST_TICKET
-                print(f"[INFO] Input '{args.join}' -> ticket: {ticket}")
-            
-            success = await join_room_flow(ws, ticket)
-            if not success:
-                return
-        
-        # 4. Main listen loop
-        await listen_loop(ws, auto_reply=not args.no_auto_reply)
-        
-    except asyncio.CancelledError:
-        pass
-    except KeyboardInterrupt:
-        print("\n[EXIT] Shutting down...")
-    finally:
-        print("[CLEANUP] Closing connections...")
+                await default_mode(ws)
+                
+        except asyncio.CancelledError:
+            pass
+        except KeyboardInterrupt:
+            print("\n\n⏹️ [STOP] Dừng bởi người dùng...")
+        finally:
+            if ws:
+                try:
+                    await ws.close()
+                except:
+                    pass
+                ws = None
+    
+    # Cleanup
+    if ws:
         try:
             await ws.close()
         except:
             pass
-        
-        if process:
-            print("[CLEANUP] Terminating sidecar...")
-            process.terminate()
-            try:
-                process.wait(timeout=2)
-            except subprocess.TimeoutExpired:
-                process.kill()
-        
-        print("[DONE] Goodbye!")
+    
+    if process:
+        print("\n🧹 [CLEANUP] Đang đóng sidecar...")
+        process.terminate()
+        try:
+            process.wait(timeout=2)
+        except subprocess.TimeoutExpired:
+            process.kill()
+    
+    print("✅ [DONE] Hoàn tất!")
+
 
 if __name__ == "__main__":
     try:
