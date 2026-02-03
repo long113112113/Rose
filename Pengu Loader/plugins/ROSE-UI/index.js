@@ -268,7 +268,7 @@
     }
 
     .skin-selection-carousel-container {
-      clip-path: inset(-3px -9999px -9999px -9999px) !important;
+      clip-path: inset(-200px -9999px -9999px -9999px) !important;
     }
   `;
 
