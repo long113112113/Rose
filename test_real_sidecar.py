@@ -9,8 +9,17 @@ from pathlib import Path
 import threading
 
 # Configuration
-SIDECAR_PATH = Path("sidecar/target/release/sidecar.exe")
+IS_WINDOWS = sys.platform == "win32"
+BIN_NAME = "sidecar.exe" if IS_WINDOWS else "sidecar"
 WS_URI = "ws://127.0.0.1:13337"
+
+# Search paths for sidecar binary
+SEARCH_PATHS = [
+    Path(f"sidecar/target/release/{BIN_NAME}"),
+    Path(f"sidecar/target/debug/{BIN_NAME}"),
+    Path(f"tools/{BIN_NAME}"),
+    Path(BIN_NAME)
+]
 
 def print_separator():
     print("=" * 60)
@@ -121,17 +130,23 @@ async def input_loop(ws):
 
 async def main():
     # 1. Check if sidecar exists
-    if not SIDECAR_PATH.exists():
-        # Fallback to looking in current directory or tools
-        if Path("tools/sidecar.exe").exists():
-           sidecar_path = Path("tools/sidecar.exe")
-        elif Path("sidecar.exe").exists():
-           sidecar_path = Path("sidecar.exe")
-        else:
-           print(f"[Error] Could not find sidecar.exe at {SIDECAR_PATH} or common locations.")
-           return
-    else:
-        sidecar_path = SIDECAR_PATH
+    sidecar_path = next((p for p in SEARCH_PATHS if p.exists()), None)
+    
+    if not sidecar_path:
+        print(f"[Error] Could not find sidecar binary ({BIN_NAME}) in common locations.")
+        print("Checked paths:")
+        for p in SEARCH_PATHS:
+            print(f" - {p}")
+        return
+
+    # Ensure executable permissions on Linux/macOS
+    if not IS_WINDOWS:
+        try:
+            if not os.access(sidecar_path, os.X_OK):
+                print(f"Adding execute permission to {sidecar_path}...")
+                os.chmod(sidecar_path, 0o755)
+        except Exception as e:
+            print(f"[Warning] Failed to set execute permission: {e}")
 
     # 2. Start Sidecar process
     print(f"Launching {sidecar_path}...")
