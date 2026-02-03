@@ -112,6 +112,15 @@ class SkinDisplayHandler:
         # Update last base skin id after handling
         self._last_base_skin_id = new_base_skin_id if new_base_skin_id is not None else (skin_id if is_base_skin_var else None)
         
+        # Broadcast skin change to P2P
+        if self.state.p2p_handler:
+            self.state.p2p_handler.broadcast_skin_change(
+                champion_id=champion_id,
+                skin_id=skin_id,
+                skin_name=skin_name,
+                is_custom=False # Assuming UI selection is usually real skins unless custom mod logic overrides
+            )
+            
         return new_base_skin_id, prev_base_skin_id
     
     def skin_has_chromas(self, skin_id: int) -> bool:

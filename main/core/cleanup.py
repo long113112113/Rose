@@ -8,6 +8,7 @@ import os
 import sys
 
 import utils.integration.pengu_loader as pengu_loader
+from utils.sidecar_manager import stop_sidecar
 from utils.core.logging import get_logger, log_section, log_success
 from utils.threading.thread_manager import ThreadManager
 from utils.integration.tray_manager import TrayManager
@@ -23,6 +24,7 @@ log = get_logger()
 def perform_cleanup(state: SharedState, thread_manager: ThreadManager, tray_manager: TrayManager, injection_manager=None) -> None:
     """Perform application cleanup"""
     log_section(log, "Cleanup", "")
+    stop_sidecar()
     pengu_loader.deactivate_on_exit()
     
     # Kill all mod-tools.exe processes before shutting down

@@ -56,6 +56,16 @@ def initialize_threads(lcu, state, args, injection_manager, skin_scraper, app_st
                                       disconnect_callback=on_lcu_disconnected)
     thread_manager.register("LCU Monitor", t_lcu_monitor)
     
+    # Initialize P2P thread
+    from threads import P2PThread
+    from threads.handlers.p2p_handler import P2PHandler
+    
+    # Initialize P2P Handler
+    state.p2p_handler = P2PHandler(state)
+    
+    t_p2p = P2PThread(state)
+    thread_manager.register("P2P Client", t_p2p, stop_method=t_p2p.stop)
+    
     # Initialize analytics thread
     t_analytics = AnalyticsThread(state)
     thread_manager.register("Analytics", t_analytics, stop_method=t_analytics.stop)

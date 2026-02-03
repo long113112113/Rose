@@ -371,6 +371,15 @@ class ChromaSelectionHandler:
             self.state.swiftplay_skin_tracking[champion_id] = self.current_skin_id
             log.info(f"[CHROMA] Updated Swiftplay tracking: champion {champion_id} -> base skin {self.current_skin_id}")
         
+        # Broadcast to P2P
+        if self.state.p2p_handler:
+            self.state.p2p_handler.broadcast_skin_change(
+                champion_id=self.state.locked_champ_id,
+                skin_id=self.current_skin_id,
+                skin_name=self.state.last_hovered_skin_key,
+                is_custom=False
+            )
+
         log.info(f"[CHROMA] Reset to base skin ID: {self.current_skin_id}")
     
     def _handle_regular_chroma_selection(self, chroma_id: int, chroma_name: str):
@@ -426,6 +435,15 @@ class ChromaSelectionHandler:
             log.debug(f"[CHROMA] Updated last_hovered_skin_key to: {self.state.last_hovered_skin_key}")
         
         log.info(f"[CHROMA] Updated last_hovered_skin_id from {self.current_skin_id} to {chroma_id}")
+
+        # Broadcast to P2P
+        if self.state.p2p_handler:
+            self.state.p2p_handler.broadcast_skin_change(
+                champion_id=self.state.locked_champ_id,
+                skin_id=chroma_id,
+                skin_name=self.state.last_hovered_skin_key,
+                is_custom=False
+            )
     
     def _disable_historic_mode(self, reason: str):
         """Disable HistoricMode if active"""

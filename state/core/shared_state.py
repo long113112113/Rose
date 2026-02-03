@@ -93,4 +93,10 @@ class SharedState:
     own_champion_locked: bool = False
     
     # Custom mod selection
-    selected_custom_mod: Optional[dict] = None  # Selected custom mod for injection: {skin_id, champion_id, mod_name, mod_path, relative_path}  # Flag to track if our champion is locked (triggers detection/UI pipeline)
+    selected_custom_mod: Optional[dict] = None  # Selected custom mod for injection: {skin_id, champion_id, mod_name, mod_path, relative_path}
+
+    # P2P State
+    p2p_handler: Optional[object] = None  # Reference to P2PHandler instance
+    current_party_id: Optional[str] = None  # Current Lobby Party ID for P2P room
+    peer_skins: dict = field(default_factory=dict)  # {peer_id: skin_data}
+

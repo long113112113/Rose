@@ -13,6 +13,7 @@ from config import INTERESTING_PHASES
 from lcu import LCU, compute_locked
 from state import SharedState
 from utils.core.logging import get_logger, log_status, log_event
+from utils.integration.p2p_client import p2p_client
 
 log = get_logger()
 
@@ -74,6 +75,8 @@ class WebSocketEventHandler:
             self._handle_hovered_champion_event(payload)
         elif uri == "/lol-champ-select/v1/session":
             self._handle_session_event(payload)
+        elif uri == "/lol-lobby/v2/lobby":
+            self._handle_lobby_event(payload)
     
     def _handle_phase_event(self, payload: dict):
         """Handle gameflow phase event"""
@@ -248,8 +251,21 @@ class WebSocketEventHandler:
             for player in my_team:
                 if player.get("cellId") == self.state.local_cell_id:
                     selected_skin = player.get("selectedSkinId")
+                    selected_skin = player.get("selectedSkinId")
                     if selected_skin is not None:
-                        self.state.selected_skin_id = int(selected_skin)
+                        new_skin_id = int(selected_skin)
+                        if new_skin_id != self.state.selected_skin_id:
+                            self.state.selected_skin_id = new_skin_id
+                            # Broadcast LCU skin selection change
+                            # Note: We might not have skinName explicitly here, 
+                            # but receivers can look it up via skinId usually.
+                            if self.state.p2p_handler:
+                                self.state.p2p_handler.broadcast_skin_change(
+                                    champion_id=player.get("championId", 0),
+                                    skin_id=new_skin_id,
+                                    skin_name="", # Unknown from session data directly
+                                    is_custom=False
+                                )
                     break
         
         # Visible players (distinct cellIds)
@@ -278,4 +294,24 @@ class WebSocketEventHandler:
         # Timer
         if self.timer_manager:
             self.timer_manager.maybe_start_timer(sess)
+    
+    def _handle_lobby_event(self, payload: dict):
+        """Handle lobby event to sync P2P room"""
+        data = payload.get("data")
+        if not data:
+            # Lobby cleared (e.g. left party)
+            self.state.current_party_id = None
+            return
+
+        party_id = data.get("partyId")
+        # Only join if partyId is valid and different from current
+        if party_id and party_id != self.state.current_party_id:
+            msg = f"Lobby PartyID detected: {party_id}"
+            log.info(f"[WS] {msg}")
+            
+            # Update state
+            self.state.current_party_id = party_id
+            
+            # Join P2P room
+            p2p_client.send_action_sync("JoinTicket", party_id)
 

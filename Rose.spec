@@ -38,6 +38,7 @@ injection_binaries = [
     'injection/tools/cslol-dll.dll',
     'injection/tools/wad-extract.exe',
     'injection/tools/wad-make.exe',
+    'tools/sidecar.exe',  # Rust Sidecar
 ]
 
 # Data files (batch scripts, text files, etc.)
@@ -58,9 +59,10 @@ for tool in injection_binaries:
         missing_binaries.append(tool)
 
 if missing_binaries:
-    print(f"[WARNING] Missing injection binaries:")
+    print(f"[ERROR] Missing injection binaries:")
     for tool in missing_binaries:
         print(f"  - {tool}")
+    raise RuntimeError("Build failed: Missing required injection binaries")
 else:
     print(f"[OK] All {len(injection_binaries)} injection binaries found")
 

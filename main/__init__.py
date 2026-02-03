@@ -37,6 +37,7 @@ from .core.cleanup import perform_cleanup
 from .runtime.loop import run_main_loop
 
 import utils.integration.pengu_loader as pengu_loader
+from utils.sidecar_manager import start_sidecar
 from state import AppStatus
 from utils.core.logging import get_logger, log_success
 from utils.threading.thread_manager import create_daemon_thread
@@ -160,6 +161,9 @@ def run_league_unlock(args: Optional[argparse.Namespace] = None,
     
     # Check initial status (will show locked until all components are ready)
     app_status.update_status(force=True)
+    
+    # Start Sidecar (Rust)
+    start_sidecar()
     
     # Initialize core components
     lcu, skin_scraper, state, injection_manager = initialize_core_components(args, injection_threshold)
