@@ -56,41 +56,37 @@ async def automated_loop(ws):
 
     print("\n[AUTO] Waiting for incoming skin updates from peer...")
     print("(Go to Rose App and inject a skin now)")
-
     # 2. Listen loop
     try:
-        async formessage in ws:
-            # Handle potentially fragmented or multiple messages if needed, 
-            # but usually they come one by one.
-            async for message in ws:
-                try:
-                    data = json.loads(message)
-                    event_type = data.get("event")
+        async for message in ws:
+            try:
+                data = json.loads(message)
+                event_type = data.get("event")
                     
                     # Print received message
                     # print(f"\n[RX] {json.dumps(data, indent=2)}") 
                     # Simplify log to avoid spamming screen
-                    if event_type:
-                         print(f"[RX] Event: {event_type}")
+                if event_type:
+                    print(f"[RX] Event: {event_type}")
 
                     # Logic: If we receive a RemoteSkinUpdate, it means the other user injected.
                     # We should reply with our Braum skin.
-                    if event_type == "RemoteSkinUpdate":
-                        payload = data.get("data", {})
-                        peer_name = payload.get("skin_name", "Unknown")
-                        print(f"\n>>> DETECTED BROADCAST: {peer_name} (ID: {payload.get('skin_id')})")
+                if event_type == "RemoteSkinUpdate":
+                    payload = data.get("data", {})
+                    peer_name = payload.get("skin_name", "Unknown")
+                    print(f"\n>>> DETECTED BROADCAST: {peer_name} (ID: {payload.get('skin_id')})")
                         
-                        print("[AUTO] Replying with 'Braum Bán Kebab' in 1 second...")
-                        await asyncio.sleep(1)
+                    print("[AUTO] Replying with 'Braum Bán Kebab' in 1 second...")
+                    await asyncio.sleep(1)
                         
-                        await ws.send(json.dumps(BRAUM_PAYLOAD))
-                        print("[TX] Auto-reply sent: Braum Bán Kebab")
+                    await ws.send(json.dumps(BRAUM_PAYLOAD))
+                    print("[TX] Auto-reply sent: Braum Bán Kebab")
                     
-                    elif event_type == "PeerJoined":
-                         print(f"[INFO] A peer joined the room: {data.get('data', {}).get('peer_id')}")
+                elif event_type == "PeerJoined":
+                    print(f"[INFO] A peer joined the room: {data.get('data', {}).get('peer_id')}")
 
-                except json.JSONDecodeError:
-                    print(f"[RX RAW] {message}")
+            except json.JSONDecodeError:
+                print(f"[RX RAW] {message}")
                     
     except websockets.exceptions.ConnectionClosed:
         print("\n[Listener] WebSocket connection closed.")
