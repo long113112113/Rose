@@ -93,7 +93,7 @@ htmlcov/
 *.tmp
 *.bak
 *.backup
-sidecar/target
+sidecar/
 license.dat
 config.ini
 injection/tools/hashes.game.txt
