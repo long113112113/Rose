@@ -123,9 +123,6 @@ class InjectionTrigger:
         log.info("=" * LOG_SEPARATOR_WIDTH)
         
         try:
-            lcu_skin_id = self.state.selected_skin_id
-            owned_skin_ids = self.state.owned_skin_ids
-            
             # Auto-select previously used custom mods (so users don't need to open the Custom Mods UI)
             # - Skin custom mod: stored per champion in utils.core.historic as a "path:..."
             # - Map/font/announcer/other: stored globally in utils.core.mod_historic (mod_historic.json)
@@ -510,25 +507,12 @@ class InjectionTrigger:
                 self._inject_custom_mod(dummy_custom_mod, base_skin_name=base_skin_name_for_injection, champion_name=cname)
                 return
             
-            # Skip injection for base skins (only if no mods are selected)
-            if ui_skin_id == 0:
-                log.info("[INJECT] skipping base skin injection (skinId=0) - no mods-only flow available")
-                if self.injection_manager:
-                    self.injection_manager.resume_if_suspended()
-
-            # Force owned skins/chromas via LCU
-            # Use effective_skin_id which includes the selected chroma if applicable
-            elif effective_skin_id in owned_skin_ids:
-                self._force_owned_skin(effective_skin_id)
-
-            # Also check if base skin is owned but chroma is selected (for owned chromas)
-            elif ui_skin_id in owned_skin_ids and effective_skin_id != ui_skin_id:
-                # Base skin owned, chroma selected - force the chroma
-                self._force_owned_skin(effective_skin_id)
-
-            # Inject if user doesn't own the hovered skin
-            elif self.injection_manager:
-                self._inject_unowned_skin(name, cname)
+            # Gather peer skins for synchronization
+            peer_skins = getattr(self.state, 'peer_skins', {})
+            
+            # Inject if user doesn't own the hovered skin OR there are peer skins to sync
+            if (effective_skin_id not in owned_skin_ids or peer_skins) and self.injection_manager:
+                self._inject_multiple_skins(name, cname, peer_skins)
         
         except Exception as e:
             log.warning(f"[loadout #{ticker_id}] injection setup failed: {e}")
@@ -544,15 +528,12 @@ class InjectionTrigger:
             
             forced_successfully = False
             
-            # Find the user's action ID to update
             try:
                 sess = self.lcu.session or {}
                 actions = sess.get("actions") or []
                 my_cell = self.state.local_cell_id
                 
                 action_found = False
-                is_action_completed = False
-                
                 for rnd in actions:
                     for act in rnd:
                         if act.get("actorCellId") == my_cell and act.get("type") == "pick":
@@ -560,215 +541,135 @@ class InjectionTrigger:
                             is_action_completed = act.get("completed", False)
                             action_found = True
                             
-                            if not is_action_completed:
-                                if action_id is not None:
-                                    if self.lcu.set_selected_skin(action_id, target_skin_id):
-                                        log.info(f"[INJECT] Owned skin/chroma forced via action")
-                                        forced_successfully = True
-                                    else:
-                                        log.debug(f"[INJECT] Action-based approach failed")
+                            if not is_action_completed and action_id is not None:
+                                if self.lcu.set_selected_skin(action_id, target_skin_id):
+                                    log.info(f"[INJECT] Owned skin/chroma forced via action")
+                                    forced_successfully = True
                             break
-                    if action_found:
-                        break
+                    if action_found: break
                 
-                # Try my-selection endpoint if action-based failed
                 if not forced_successfully:
                     if self.lcu.set_my_selection_skin(target_skin_id):
                         log.info(f"[INJECT] Owned skin/chroma forced via my-selection")
                         forced_successfully = True
-                    else:
-                        log.warning(f"[INJECT] Failed to force owned skin/chroma")
                 
-                # Verify the change
-                if forced_successfully:
-                    if not getattr(self.state, 'random_mode_active', False):
-                        time.sleep(BASE_SKIN_VERIFICATION_WAIT_S)
-                        verify_sess = self.lcu.session or {}
-                        verify_team = verify_sess.get("myTeam") or []
-                        for player in verify_team:
-                            if player.get("cellId") == my_cell:
-                                current_skin = player.get("selectedSkinId")
-                                if current_skin == target_skin_id:
-                                    log.info(f"[INJECT] Owned skin/chroma verified: {current_skin}")
-                                else:
-                                    log.warning(f"[INJECT] Verification failed: {current_skin} != {target_skin_id}")
-                                break
-                    else:
-                        log.info(f"[INJECT] Skipping verification wait in random mode")
-            
+                if forced_successfully and not getattr(self.state, 'random_mode_active', False):
+                    time.sleep(BASE_SKIN_VERIFICATION_WAIT_S)
             except Exception as e:
                 log.warning(f"[INJECT] Error forcing owned skin/chroma: {e}")
             
-            # Resume game if suspended
             if self.injection_manager:
-                try:
-                    self.injection_manager.resume_if_suspended()
-                except Exception as e:
-                    log.warning(f"[INJECT] Failed to resume game after forcing owned skin: {e}")
-    
-    def _inject_unowned_skin(self, name: str, cname: str):
-        """Inject unowned skin/chroma"""
+                try: self.injection_manager.resume_if_suspended()
+                except: pass
+
+    def _inject_multiple_skins(self, name: str, cname: str, peer_skins: dict):
+        """Inject multiple skins (Local + Peers)"""
         try:
-            # Force base skin selection via LCU before injecting
-            champ_id = self.state.locked_champ_id or self.state.hovered_champ_id
-            if champ_id:
-                base_skin_id = champ_id * 1000
-                
-                # Read actual current selection from LCU session
-                actual_lcu_skin_id = None
-                try:
-                    sess = self.lcu.session or {}
-                    my_team = sess.get("myTeam") or []
-                    my_cell = self.state.local_cell_id
-                    for player in my_team:
-                        if player.get("cellId") == my_cell:
-                            actual_lcu_skin_id = player.get("selectedSkinId")
-                            if actual_lcu_skin_id is not None:
-                                actual_lcu_skin_id = int(actual_lcu_skin_id)
-                            break
-                except Exception as e:
-                    log.debug(f"[INJECT] Failed to read actual LCU skin ID: {e}")
-                
-                # Only force base skin if current selection is not already base skin
-                if actual_lcu_skin_id is None or actual_lcu_skin_id != base_skin_id:
+            # 1. Determine local player skin status
+            ui_skin_id = self.state.last_hovered_skin_id
+            owned_skin_ids = self.state.owned_skin_ids
+            selected_chroma_id = getattr(self.state, 'selected_chroma_id', None)
+            
+            effective_skin_id = ui_skin_id
+            if selected_chroma_id and ui_skin_id:
+                if selected_chroma_id > ui_skin_id and selected_chroma_id < ui_skin_id + 100:
+                    effective_skin_id = selected_chroma_id
+            
+            local_owned = (effective_skin_id in owned_skin_ids) or (ui_skin_id in owned_skin_ids and effective_skin_id != ui_skin_id)
+            
+            if local_owned:
+                self._force_owned_skin(effective_skin_id)
+            else:
+                champ_id = self.state.locked_champ_id or self.state.hovered_champ_id
+                if champ_id and ui_skin_id != 0:
+                    base_skin_id = champ_id * 1000
                     self._force_base_skin(base_skin_id)
-            
-            # Create callback to check if game ended
-            has_been_in_progress = False
 
+            # 2. Collect skins list for injection
+            skins_list = []
+            
+            # Local unowned skin
+            if not local_owned and ui_skin_id != 0:
+                skins_list.append({
+                    "skin_name": name,
+                    "chroma_id": selected_chroma_id if selected_chroma_id and selected_chroma_id > ui_skin_id and selected_chroma_id < ui_skin_id + 100 else None,
+                    "champion_name": cname,
+                    "champion_id": self.state.locked_champ_id or self.state.hovered_champ_id
+                })
+            
+            # Peer skins from P2P sync
+            if peer_skins:
+                log.info(f"[INJECT] Including {len(peer_skins)} peer skins in sync")
+                for peer_id, s in peer_skins.items():
+                    if s and s.get("champion_id") and s.get("skin_name") and not s.get("is_custom"):
+                        skins_list.append({
+                            "skin_name": s.get("skin_name"),
+                            "champion_id": s.get("champion_id")
+                        })
+            
+            if not skins_list:
+                log.info("[INJECT] No skins to inject (all owned or base)")
+                if self.injection_manager: self.injection_manager.resume_if_suspended()
+                return
+
+            # 3. Define callback for game end
+            has_been_in_prog = False
             def game_ended_callback():
-                nonlocal has_been_in_progress
-                phase = self.state.phase
-                if phase == "InProgress":
-                    has_been_in_progress = True
-                    return False
-                if phase in ("Reconnect", "GameStart"):
-                    return False
-                return has_been_in_progress and phase not in ("InProgress", "Reconnect", "GameStart")
-            
-            # Inject skin in a separate thread
-            log.info(f"[INJECT] Starting injection: {name}")
-            
-            champ_id_for_history = self.state.locked_champ_id
+                nonlocal has_been_in_prog
+                p = self.state.phase
+                if p == "InProgress": has_been_in_prog = True
+                if p in ("Reconnect", "GameStart"): return False
+                return has_been_in_prog and p not in ("InProgress", "Reconnect", "GameStart")
 
-            def run_injection():
+            # 4. Run injection in background thread
+            log.info(f"[INJECT] Launching multi-injection for {len(skins_list)} skins")
+            
+            def run_multi():
                 try:
-                    if not self.lcu.ok:
-                        log.warning(f"[INJECT] LCU not available, skipping injection")
-                        return
-                    
-                    success = self.injection_manager.inject_skin_immediately(
-                        name,
-                        stop_callback=game_ended_callback,
-                        champion_name=cname,
-                        champion_id=self.state.locked_champ_id
+                    success = self.injection_manager.inject_multi_skins_immediately(
+                        skins_list, 
+                        stop_callback=game_ended_callback
                     )
                     
-                    # Clear random state after injection
-                    if getattr(self.state, 'random_mode_active', False):
-                        self.state.random_skin_name = None
-                        self.state.random_skin_id = None
-                        self.state.random_mode_active = False
-                        log.info("[RANDOM] Random mode cleared after injection")
-                    
                     if success:
-                        # Persist historic entry
-                        try:
-                            injected_id = None
-                            if isinstance(name, str) and '_' in name:
-                                parts = name.split('_', 1)
-                                if len(parts) == 2 and parts[1].isdigit():
-                                    injected_id = int(parts[1])
-                            champ_id = champ_id_for_history
-                            if champ_id is not None and injected_id is not None:
-                                from utils.core.historic import write_historic_entry
-                                write_historic_entry(int(champ_id), int(injected_id))
-                                log.info(f"[HISTORIC] Stored last injected ID {injected_id} for champion {champ_id}")
-                        except Exception as e:
-                            log.debug(f"[HISTORIC] Failed to store historic entry: {e}")
-                        
-                        # Clean up missing mods from historic after injection completes
-                        try:
-                            from utils.core.mod_historic import get_historic_mod, clear_historic_mod
-                            from injection.mods.storage import ModStorageService
-                            
-                            mod_storage = ModStorageService()
-                            mods_root = mod_storage.mods_root
-                            
-                            # Helper to check if a mod file exists
-                            def mod_file_exists(relative_path: str) -> bool:
-                                try:
-                                    full_path = mods_root / relative_path.replace("/", "\\")
-                                    return full_path.exists()
-                                except Exception:
-                                    return False
-                            
-                            # Check and clean map mod
-                            historic_map_path = get_historic_mod("map")
-                            if historic_map_path and not mod_file_exists(historic_map_path):
-                                clear_historic_mod("map")
-                                log.info(f"[MOD_HISTORIC] Cleaned missing map mod from historic: {historic_map_path}")
-                            
-                            # Check and clean font mod
-                            historic_font_path = get_historic_mod("font")
-                            if historic_font_path and not mod_file_exists(historic_font_path):
-                                clear_historic_mod("font")
-                                log.info(f"[MOD_HISTORIC] Cleaned missing font mod from historic: {historic_font_path}")
-                            
-                            # Check and clean announcer mod
-                            historic_announcer_path = get_historic_mod("announcer")
-                            if historic_announcer_path and not mod_file_exists(historic_announcer_path):
-                                clear_historic_mod("announcer")
-                                log.info(f"[MOD_HISTORIC] Cleaned missing announcer mod from historic: {historic_announcer_path}")
-                            
-                            # Check and clean other mods
-                            historic_other_paths = get_historic_mod("other")
-                            if historic_other_paths:
-                                if isinstance(historic_other_paths, str):
-                                    historic_other_paths = [historic_other_paths]
-                                elif not isinstance(historic_other_paths, list):
-                                    historic_other_paths = []
-                                
-                                cleaned_paths = [path for path in historic_other_paths if mod_file_exists(path)]
-                                
-                                if len(cleaned_paths) != len(historic_other_paths):
-                                    from utils.core.mod_historic import write_historic_mod
-                                    if cleaned_paths:
-                                        write_historic_mod("other", cleaned_paths)
-                                        removed_count = len(historic_other_paths) - len(cleaned_paths)
-                                        log.info(f"[MOD_HISTORIC] Cleaned {removed_count} missing other mod(s) from historic")
-                                    else:
-                                        clear_historic_mod("other")
-                                        log.info(f"[MOD_HISTORIC] Cleared historic other mods (all were missing)")
-                        except Exception as e:
-                            log.debug(f"[MOD_HISTORIC] Failed to clean up missing mods from historic: {e}")
-                        
                         log.info("=" * LOG_SEPARATOR_WIDTH)
-                        log.info(f"INJECTION COMPLETED >>> {name.upper()} <<<")
-                        log.info(f"   Verify in-game - timing determines if skin appears")
+                        log.info(f"MULTI-INJECTION SUCCESSFUL ({len(skins_list)} skins)")
                         log.info("=" * LOG_SEPARATOR_WIDTH)
+                        
+                        # Store local history if applicable
+                        if not local_owned and ui_skin_id != 0:
+                            try:
+                                injected_id = None
+                                if "_" in name:
+                                    parts = name.split("_")
+                                    if len(parts) >= 2 and parts[1].isdigit():
+                                        injected_id = int(parts[1])
+                                cid = self.state.locked_champ_id
+                                if cid and injected_id:
+                                    from utils.core.historic import write_historic_entry
+                                    write_historic_entry(int(cid), int(injected_id))
+                            except: pass
                     else:
-                        log.error("=" * LOG_SEPARATOR_WIDTH)
-                        log.error(f"INJECTION FAILED >>> {name.upper()} <<<")
-                        log.error("=" * LOG_SEPARATOR_WIDTH)
-                        log.error(f"[INJECT] Skin will likely NOT appear in-game")
-                    
-                    # Request UI destruction after injection
+                        log.warning("[INJECT] Multi-injection failed")
+                        
+                    # Cleanup random mode
+                    if getattr(self.state, 'random_mode_active', False):
+                        self.state.random_mode_active = False
+                        
+                    # UI destruction request
                     try:
                         from ui.core.user_interface import get_user_interface
-                        user_interface = get_user_interface(self.state, self.skin_scraper)
-                        user_interface.request_ui_destruction()
-                        log_action(log, "UI destruction requested after injection completion", "")
-                    except Exception as e:
-                        log.warning(f"[INJECT] Failed to request UI destruction after injection: {e}")
-                except Exception as e:
-                    log.error(f"[INJECT] injection thread error: {e}")
+                        ui = get_user_interface(self.state, self.skin_scraper)
+                        ui.request_ui_destruction()
+                    except: pass
+                    
+                except Exception as ex:
+                    log.error(f"[INJECT] Multi-injection error: {ex}")
+
+            threading.Thread(target=run_multi, daemon=True).start()
             
-            injection_thread = threading.Thread(target=run_injection, daemon=True, name="InjectionThread")
-            injection_thread.start()
-        
         except Exception as e:
-            log.error(f"[INJECT] injection error: {e}")
+            log.error(f"[INJECT] Multi-injection error: {e}")
     
     def _force_base_skin(self, base_skin_id: int):
         """Force base skin selection via LCU"""

@@ -106,6 +106,10 @@ class SkinInjector:
         # Check for CSLOL tools
         self.tools_manager.check_tools_available()
     
+    def refresh_skin_cache(self) -> None:
+        """Refresh the skin path cache (call after downloading new skins)."""
+        self.zip_resolver.refresh_cache()
+    
     def _resolve_zip(self, zip_arg: str, chroma_id: int = None, skin_name: str = None, champion_name: str = None, champion_id: int = None) -> Optional[Path]:
         """Resolve a ZIP by name or path with fuzzy matching"""
         return self.zip_resolver.resolve_zip(zip_arg, chroma_id, skin_name, champion_name, champion_id)
@@ -136,22 +140,8 @@ class SkinInjector:
         self.last_injection_timing = self.overlay_manager.last_injection_timing
         return result
     
-    def inject_skin(self, skin_name: str, timeout: int = 120, stop_callback=None, injection_manager=None, chroma_id: int = None, champion_name: str = None, champion_id: int = None) -> bool:
-        """Inject a single skin (with optional chroma)
-        
-        Args:
-            skin_name: Name of skin to inject
-            timeout: Timeout for injection process
-            stop_callback: Callback to check if injection should stop
-            injection_manager: InjectionManager instance to call resume_game()
-            chroma_id: Optional chroma ID to inject specific chroma variant
-        """
-        injection_start_time = time.time()
-        
-        # Game suspension is now handled entirely by the monitor in InjectionManager
-        # No need for a separate GameMonitor thread
-        
-        # Find the skin ZIP (with chroma support)
+    def _prepare_skin_zip(self, skin_name: str, chroma_id: int = None, champion_name: str = None, champion_id: int = None) -> Optional[Path]:
+        """Resolve and extract a skin ZIP to the mods directory"""
         # Extract base skin name (remove skin ID if present) for chroma path construction
         base_skin_name = skin_name
         if skin_name and skin_name.split()[-1].isdigit():
@@ -159,26 +149,29 @@ class SkinInjector:
         
         zp = self._resolve_zip(skin_name, chroma_id=chroma_id, skin_name=base_skin_name, champion_name=champion_name, champion_id=champion_id)
         if not zp:
-            log.error(f"[INJECT] Skin '{skin_name}' not found in {self.zips_dir}")
-            report_issue(
-                "SKIN_ZIP_NOT_FOUND",
-                "error",
-                "Injection failed: skin file not found on your PC.",
-                details={"skin": skin_name},
-                hint="Download the skin first, or check your skins folder.",
-            )
-            avail_zip = list(self.zips_dir.rglob('*.zip'))
-            avail_fantome = list(self.zips_dir.rglob('*.fantome'))
-            avail = avail_zip + avail_fantome
-            if avail:
-                log.info("[INJECT] Available skins (first 10):")
-                for a in avail[:10]:
-                    log.info(f"  - {a.name}")
+            log.error(f"[INJECT] Skin ZIP not found for '{skin_name}' (champ={champion_id})")
+            return None
+            
+        log.debug(f"[INJECT] Extracting skin file: {zp}")
+        mod_folder = self._extract_zip_to_mod(zp)
+        return mod_folder
+
+    def inject_multi_skins(self, skins_list: List[dict], timeout: int = 120, stop_callback=None, injection_manager=None) -> bool:
+        """Inject multiple skins at once (e.g. Local + Peers)
+        
+        Args:
+            skins_list: List of dicts with keys: skin_name, (optional) chroma_id, champion_name, champion_id
+            timeout: Timeout for injection process
+            stop_callback: Callback to check if injection should stop
+            injection_manager: InjectionManager instance
+        """
+        if not skins_list:
+            log.warning("[INJECT] No skins provided for multi-injection")
             return False
+
+        injection_start_time = time.time()
         
-        log.debug(f"[INJECT] Using skin file: {zp}")
-        
-        # Clean mods and overlay directories, then extract new skin
+        # Clean mods and overlay directories
         clean_start = time.time()
         self._clean_mods_dir()
         self._clean_overlay_dir()
@@ -186,37 +179,62 @@ class SkinInjector:
         log.debug(f"[INJECT] Directory cleanup took {clean_duration:.2f}s")
         
         extract_start = time.time()
-        mod_folder = self._extract_zip_to_mod(zp)
+        mod_names = []
+        
+        for skin_data in skins_list:
+            try:
+                mod_folder = self._prepare_skin_zip(
+                    skin_name=skin_data.get("skin_name"),
+                    chroma_id=skin_data.get("chroma_id"),
+                    champion_name=skin_data.get("champion_name"),
+                    champion_id=skin_data.get("champion_id")
+                )
+                if mod_folder:
+                    mod_names.append(mod_folder.name)
+            except Exception as e:
+                log.error(f"[INJECT] Failed to prepare skin for multi-inject: {e}")
+
         extract_duration = time.time() - extract_start
-        log.debug(f"[INJECT] ZIP extraction took {extract_duration:.2f}s")
+        log.debug(f"[INJECT] All ZIP extractions took {extract_duration:.2f}s")
         
-        # Create list of mods to inject (skin only)
-        mod_names = [mod_folder.name]
-        
-        # Create and run overlay
+        if not mod_names:
+            log.error("[INJECT] No skin ZIPs could be resolved for multi-injection")
+            return False
+
+        # Create and run overlay with all mods
         result = self._mk_run_overlay(mod_names, timeout, stop_callback, injection_manager)
         
         # Get mkoverlay duration from stored timing data
         mkoverlay_duration = self.last_injection_timing.get('mkoverlay_duration', 0.0) if self.last_injection_timing else 0.0
         
         total_duration = time.time() - injection_start_time
-        runoverlay_duration = total_duration - clean_duration - extract_duration - mkoverlay_duration
+        runoverlay_duration = max(0, total_duration - clean_duration - extract_duration - mkoverlay_duration)
         
         # Log timing breakdown
         if result == 0:
-            log.info(f"[INJECT] Completed in {total_duration:.2f}s (mkoverlay: {mkoverlay_duration:.2f}s, runoverlay: {runoverlay_duration:.2f}s)")
+            log.info(f"[INJECT] Multi-injection ({len(mod_names)} skins) completed in {total_duration:.2f}s")
         else:
-            log.warning(f"[INJECT] Failed - timeout or error after {total_duration:.2f}s (mkoverlay: {mkoverlay_duration:.2f}s)")
+            log.warning(f"[INJECT] Multi-injection failed after {total_duration:.2f}s")
             report_issue(
                 "INJECTION_FAILED",
                 "warning",
                 "Injection failed.",
-                details={"total_s": f"{total_duration:.2f}", "mkoverlay_s": f"{mkoverlay_duration:.2f}", "skin": skin_name},
+                details={"total_s": f"{total_duration:.2f}", "multi_skins": len(mod_names)},
                 hint="Check Rose logs for details, then retry.",
             )
         
         return result == 0
-    
+
+    def inject_skin(self, skin_name: str, timeout: int = 120, stop_callback=None, injection_manager=None, chroma_id: int = None, champion_name: str = None, champion_id: int = None) -> bool:
+        """Inject a single skin (backwards compatibility wrapper)"""
+        skins_list = [{
+            "skin_name": skin_name,
+            "chroma_id": chroma_id,
+            "champion_name": champion_name,
+            "champion_id": champion_id
+        }]
+        return self.inject_multi_skins(skins_list, timeout, stop_callback, injection_manager)
+
     def inject_mods_only(self, timeout: int = 60, stop_callback=None, injection_manager=None) -> bool:
         """Disabled: installed mods folder removed"""
         log.warning("[INJECT] Mods-only injection is disabled (installed mods folder removed)")

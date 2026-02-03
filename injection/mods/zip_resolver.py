@@ -9,6 +9,7 @@ from pathlib import Path
 from typing import Optional
 
 from utils.core.logging import get_logger, log_success
+from .skin_cache import SkinPathCache
 
 log = get_logger()
 
@@ -19,6 +20,18 @@ class ZipResolver:
     def __init__(self, zips_dir: Path):
         self.zips_dir = zips_dir
         self.zips_dir.mkdir(parents=True, exist_ok=True)
+        
+        # Initialize path cache for O(1) lookups
+        self._cache = SkinPathCache()
+    
+    def ensure_cache(self) -> None:
+        """Build cache if not already built."""
+        if not self._cache.is_built:
+            self._cache.build(self.zips_dir)
+    
+    def refresh_cache(self) -> None:
+        """Rebuild the cache (call after downloading new skins)."""
+        self._cache.refresh(self.zips_dir)
     
     def resolve_zip(self, zip_arg: str, chroma_id: int = None, skin_name: str = None, champion_name: str = None, champion_id: int = None) -> Optional[Path]:
         """Resolve a ZIP by name or path with fuzzy matching, supporting new merged structure
@@ -29,6 +42,9 @@ class ZipResolver:
             skin_name: Optional base skin name for chroma lookup
             champion_id: Optional champion ID for path construction.
         """
+        # Ensure cache is built
+        self.ensure_cache()
+        
         log.debug(f"[INJECT] Resolving zip for: '{zip_arg}' (chroma_id: {chroma_id}, skin_name: {skin_name})")
         cand = Path(zip_arg)
         if cand.exists():
@@ -44,9 +60,20 @@ class ZipResolver:
             
             # If chroma_id is provided, this is actually a chroma (Swiftplay case)
             if chroma_id is not None:
+                # Fast path: Try cache first
+                cached = self._cache.get_chroma(chroma_id)
+                if cached:
+                    log.debug(f"[INJECT] Cache hit for chroma: {chroma_id}")
+                    return cached
                 return self._resolve_chroma_by_id(champion_id, chroma_id)
             
-            # This is a base skin - Look for {champion_id}/{skin_id}/{skin_id}.zip or {skin_id}.fantome
+            # Fast path: Try cache first for base skin
+            cached = self._cache.get_skin(skin_id)
+            if cached:
+                log.debug(f"[INJECT] Cache hit for skin: {skin_id}")
+                return cached
+            
+            # Fallback: Filesystem lookup
             skin_dir = self.zips_dir / str(champion_id) / str(skin_id)
             skin_zip_path = skin_dir / f"{skin_id}.zip"
             skin_fantome_path = skin_dir / f"{skin_id}.fantome"
@@ -58,9 +85,12 @@ class ZipResolver:
                 log.debug(f"[INJECT] Found skin FANTOME: {skin_fantome_path}")
                 return skin_fantome_path
             else:
-                # Not found as base skin - might be a chroma that was incorrectly labeled as skin_
-                # Try searching for it as a chroma in any base skin directory
+                # Not found as base skin - might be a chroma
                 log.debug(f"[INJECT] Base skin not found, checking if {skin_id} is a chroma...")
+                # Try cache for chroma
+                cached = self._cache.get_chroma(skin_id)
+                if cached:
+                    return cached
                 return self._resolve_chroma_by_id(champion_id, skin_id)
         
         elif zip_arg.startswith('chroma_'):
@@ -70,6 +100,11 @@ class ZipResolver:
                 log.warning(f"[INJECT] No champion_id provided for chroma ID: {chroma_id}")
                 return None
             
+            # Fast path: Try cache first
+            cached = self._cache.get_chroma(chroma_id)
+            if cached:
+                log.debug(f"[INJECT] Cache hit for chroma: {chroma_id}")
+                return cached
             return self._resolve_chroma_by_id(champion_id, chroma_id)
 
         # For base skins (no chroma_id), we need skin_id
