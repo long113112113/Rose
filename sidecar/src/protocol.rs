@@ -17,6 +17,13 @@ pub enum ClientMessage {
 #[serde(tag = "event", content = "data")]
 pub enum ServerMessage {
     TicketCreated(String),
+    JoinedRoom {
+        ticket: String,
+    },
+    InvalidTicket {
+        ticket: String,
+        reason: String,
+    },
     PeerJoined {
         peer_id: String,
     },

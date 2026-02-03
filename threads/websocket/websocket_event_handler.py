@@ -306,12 +306,15 @@ class WebSocketEventHandler:
         party_id = data.get("partyId")
         # Only join if partyId is valid and different from current
         if party_id and party_id != self.state.current_party_id:
-            msg = f"Lobby PartyID detected: {party_id}"
-            log.info(f"[WS] {msg}")
+            # Hash partyId to get 64-char hex (32 bytes) for sidecar
+            # All users in same party have same partyId -> same hash -> same topic
+            import hashlib
+            ticket = hashlib.sha256(party_id.encode()).hexdigest()
+            
+            log.info(f"[WS] Lobby PartyID detected: {party_id} -> ticket: {ticket}")
             
             # Update state
             self.state.current_party_id = party_id
             
-            # Join P2P room
-            p2p_client.send_action_sync("JoinTicket", party_id)
-
+            # Join P2P room with hashed ticket
+            p2p_client.send_action_sync("JoinTicket", ticket)

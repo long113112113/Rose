@@ -171,6 +171,7 @@ pub async fn handle_connection(stream: TcpStream, gossip: Gossip, my_node_id: St
                                 }
                             }
                             ClientMessage::JoinTicket(ticket) => {
+                                // Python already hashes partyId to hex, so we just decode
                                 if let Some(array) =
                                     hex::decode(&ticket).ok().and_then(|v| v.try_into().ok())
                                 {
@@ -182,11 +183,20 @@ pub async fn handle_connection(stream: TcpStream, gossip: Gossip, my_node_id: St
                                     let array: [u8; 32] = array;
                                     let topic_id = iroh_gossip::TopicId::from(array);
 
+                                    info!("Joining topic: {} -> {:?}", ticket, topic_id);
+
                                     match gossip.subscribe(topic_id, vec![]).await {
                                         Ok(sub) => {
                                             _current_topic = Some(topic_id);
                                             let (sender, mut stream) = sub.split();
                                             current_topic_sender = Some(sender.clone());
+
+                                            // Send confirmation to client
+                                            let _ = to_client_tx
+                                                .send(ServerMessage::JoinedRoom {
+                                                    ticket: ticket.clone(),
+                                                })
+                                                .await;
 
                                             let tx_clone = to_client_tx.clone();
                                             let my_node_id_clone = my_node_id.clone();
@@ -222,7 +232,10 @@ pub async fn handle_connection(stream: TcpStream, gossip: Gossip, my_node_id: St
                                                                     }).await;
 
                                                                         // AUTO ACK
-                                                                        let ack = GossipMessage::SkinAck { target_peer_id: peer_id };
+                                                                        let ack =
+                                                                            GossipMessage::SkinAck {
+                                                                                target_peer_id: peer_id,
+                                                                            };
                                                                         if let Ok(json) =
                                                                             serde_json::to_vec(&ack)
                                                                         {
@@ -287,6 +300,14 @@ pub async fn handle_connection(stream: TcpStream, gossip: Gossip, my_node_id: St
                                                 .await;
                                         }
                                     }
+                                } else {
+                                    // Invalid ticket format
+                                    let _ = to_client_tx
+                                        .send(ServerMessage::InvalidTicket {
+                                            ticket: ticket.clone(),
+                                            reason: "Invalid hex format or wrong length (expected 64 hex chars)".to_string(),
+                                        })
+                                        .await;
                                 }
                             }
                             ClientMessage::UpdateSkin {
