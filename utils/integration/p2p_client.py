@@ -44,17 +44,39 @@ class P2PClient:
 
     def _start_sidecar_process(self):
         """Launch the Rust sidecar executable."""
-        # TODO: Handle production path vs dev path logic properly
         base_path = get_app_dir()
         
-        # Dev path assumption for now
-        sidecar_path = base_path / "sidecar" / "target" / "debug" / "sidecar.exe"
-        if not sidecar_path.exists():
-             # Production/Dist path assumption
-            sidecar_path = base_path / "sidecar.exe"
-
-        if not sidecar_path.exists():
-            log.error(f"Sidecar executable not found at {sidecar_path}")
+        # Check multiple possible locations
+        possible_paths = [
+            # Dev path: sidecar/target/release/sidecar.exe
+            base_path / "sidecar" / "target" / "release" / "sidecar.exe",
+            # Dev path (debug build)
+            base_path / "sidecar" / "target" / "debug" / "sidecar.exe",
+            # Dev tools folder
+            base_path / "tools" / "sidecar.exe",
+            # Production/PyInstaller onedir: _internal/injection/tools/
+            base_path / "_internal" / "injection" / "tools" / "sidecar.exe",
+            # Production/PyInstaller (legacy path without _internal)
+            base_path / "injection" / "tools" / "sidecar.exe",
+            # Fallback: root folder
+            base_path / "sidecar.exe",
+        ]
+        
+        sidecar_path = None
+        for path in possible_paths:
+            if path.exists():
+                sidecar_path = path
+                break
+        
+        if not sidecar_path:
+            searched_paths = "\n  - ".join(str(p) for p in possible_paths)
+            error_msg = (
+                f"[P2P] CRITICAL: sidecar.exe not found!\n"
+                f"  Base path: {base_path}\n"
+                f"  Searched locations:\n  - {searched_paths}\n"
+                f"  P2P features will be DISABLED."
+            )
+            log.error(error_msg)
             return
 
         try:

@@ -33,9 +33,58 @@ def print_step(step_num, total_steps, description):
     print("-" * 70)
 
 
+def check_cargo_installed():
+    """Check if Rust/Cargo is installed"""
+    try:
+        subprocess.run(["cargo", "--version"], capture_output=True, check=True)
+        return True
+    except (subprocess.CalledProcessError, FileNotFoundError):
+        return False
+
+
+def run_build_sidecar():
+    """Build the Rust sidecar using cargo"""
+    print_step(1, 4, "Building Rust Sidecar")
+    
+    sidecar_dir = Path("sidecar")
+    if not sidecar_dir.exists():
+        print("[ERROR] sidecar directory not found!")
+        return False
+
+    if not check_cargo_installed():
+        print("[ERROR] Rust/Cargo not found! Please install Rust from https://rustup.rs/")
+        return False
+
+    print("Running 'cargo build --release' in sidecar directory...")
+    try:
+        result = subprocess.run(
+            ["cargo", "build", "--release"],
+            cwd=str(sidecar_dir),
+            capture_output=False,
+            text=True
+        )
+        
+        if result.returncode != 0:
+            print("\n[ERROR] Sidecar build failed!")
+            return False
+            
+        # Verify output
+        sidecar_exe = sidecar_dir / "target" / "release" / "sidecar.exe"
+        if not sidecar_exe.exists():
+            print(f"\n[ERROR] Sidecar executable not found at {sidecar_exe}")
+            return False
+            
+        print(f"\n[OK] Sidecar built successfully: {sidecar_exe}")
+        return True
+        
+    except Exception as e:
+        print(f"\n[ERROR] Failed to run cargo: {e}")
+        return False
+
+
 def run_build_exe():
     """Run the build_pyinstaller.py script"""
-    print_step(1, 3, "Building Executable with PyInstaller")
+    print_step(2, 4, "Building Executable with PyInstaller")
     
     # Run build_pyinstaller.py as a subprocess
     result = subprocess.run(
@@ -60,7 +109,7 @@ def run_build_exe():
 
 def run_create_installer():
     """Run the create_installer.py script"""
-    print_step(2, 3, "Creating Windows Installer with Inno Setup")
+    print_step(3, 4, "Creating Windows Installer with Inno Setup")
     
     # Run create_installer.py as a subprocess
     result = subprocess.run(
@@ -86,7 +135,7 @@ def run_create_installer():
 
 def check_dependencies():
     """Check if required dependencies are installed"""
-    print_step(0, 3, "Verifying Dependencies")
+    print_step(0, 4, "Verifying Dependencies")
     
     try:
         import requests
@@ -109,7 +158,7 @@ def build_all():
     
     # Step 0: Check dependencies are installed
     if not check_dependencies():
-        print_header("[FAILED] BUILD FAILED AT STEP 0/3")
+        print_header("[FAILED] BUILD FAILED AT STEP 0/4")
         print("Required dependencies are missing.")
         print("\nTroubleshooting:")
         print("1. Install dependencies:")
@@ -117,9 +166,15 @@ def build_all():
         print("2. Run the build again")
         return False
     
-    # Step 1: Build executable
+    # Step 1: Build Sidecar
+    if not run_build_sidecar():
+        print_header("[FAILED] BUILD FAILED AT STEP 1/4")
+        print("Sidecar build failed.")
+        return False
+
+    # Step 2: Build executable
     if not run_build_exe():
-        print_header("[FAILED] BUILD FAILED AT STEP 1/3")
+        print_header("[FAILED] BUILD FAILED AT STEP 2/4")
         print("The executable build failed. Please check the errors above.")
         print("\nTroubleshooting:")
         print("1. Make sure all dependencies are installed:")
@@ -129,9 +184,9 @@ def build_all():
         print("   pip install pyinstaller")
         return False
     
-    # Step 2: Create installer
+    # Step 3: Create installer
     if not run_create_installer():
-        print_header("[WARNING] BUILD PARTIALLY COMPLETED (2/3)")
+        print_header("[WARNING] BUILD PARTIALLY COMPLETED (3/4)")
         print("Executable was built successfully, but installer creation failed.")
         print("\nYou can still use the executable directly from:")
         print("  dist/Rose/Rose.exe")

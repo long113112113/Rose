@@ -38,7 +38,7 @@ injection_binaries = [
     'injection/tools/cslol-dll.dll',
     'injection/tools/wad-extract.exe',
     'injection/tools/wad-make.exe',
-    'tools/sidecar.exe',  # Rust Sidecar
+    'sidecar/target/release/sidecar.exe',  # Rust Sidecar (from release build)
 ]
 
 # Data files (batch scripts, text files, etc.)
@@ -217,6 +217,11 @@ hiddenimports = [
     'utils.integration.tray_manager',
     'utils.integration.tray_settings',
     'utils.integration.pengu_loader',
+    'utils.integration.p2p_client',
+    'utils.integration.p2p_coordinator',
+    'threads.handlers.p2p_handler',
+    'threads.p2p_thread',
+    'lcu.features.lcu_party_chat',
     'utils.threading',
     'utils.threading.thread_manager',
     'ui',
@@ -265,7 +270,7 @@ hiddenimports = [
     'requests',
     'urllib3',
     'websocket',
-    'websocket_client',
+    'websockets',
     
     # System tray
     'pystray',
