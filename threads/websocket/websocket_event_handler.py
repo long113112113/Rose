@@ -7,6 +7,7 @@ Handles routing and processing of WebSocket API events
 
 import json
 import logging
+import asyncio
 from typing import Optional
 
 from config import INTERESTING_PHASES
@@ -14,6 +15,7 @@ from lcu import LCU, compute_locked
 from state import SharedState
 from utils.core.logging import get_logger, log_status, log_event
 from utils.integration.p2p_client import p2p_client
+from utils.integration.p2p_coordinator import P2PCoordinator
 
 log = get_logger()
 
@@ -49,6 +51,9 @@ class WebSocketEventHandler:
         self.timer_manager = timer_manager
         self.injection_manager = injection_manager
         self.swiftplay_handler = swiftplay_handler
+        
+        # Initialize P2P coordinator
+        self.p2p_coordinator = P2PCoordinator(lcu, p2p_client, state)
     
     def handle_message(self, ws, msg):
         """Handle incoming WebSocket message"""
@@ -87,6 +92,9 @@ class WebSocketEventHandler:
             if ph in INTERESTING_PHASES:
                 log_status(log, "Phase", ph, "")
             self.state.phase = ph
+            
+            # Notify P2P coordinator of phase change
+            self._notify_p2p_phase_change(ph)
             
             if ph == "ChampSelect":
                 # Detect game mode FIRST to get accurate is_swiftplay_mode flag
@@ -296,25 +304,40 @@ class WebSocketEventHandler:
             self.timer_manager.maybe_start_timer(sess)
     
     def _handle_lobby_event(self, payload: dict):
-        """Handle lobby event to sync P2P room"""
+        """Handle lobby event to sync P2P room via coordinator"""
         data = payload.get("data")
         if not data:
             # Lobby cleared (e.g. left party)
             self.state.current_party_id = None
+            self.p2p_coordinator.reset()
             return
 
         party_id = data.get("partyId")
-        # Only join if partyId is valid and different from current
+        local_member = data.get("localMember", {})
+        is_leader = local_member.get("isLeader", False)
+        
+        # Only process if partyId is valid and different from current
         if party_id and party_id != self.state.current_party_id:
-            # Hash partyId to get 64-char hex (32 bytes) for sidecar
-            # All users in same party have same partyId -> same hash -> same topic
-            import hashlib
-            ticket = hashlib.sha256(party_id.encode()).hexdigest()
-            
-            log.info(f"[WS] Lobby PartyID detected: {party_id} -> ticket: {ticket}")
+            log.info(f"[WS] Lobby PartyID detected: {party_id[:8]}..., isLeader: {is_leader}")
             
             # Update state
             self.state.current_party_id = party_id
             
-            # Join P2P room with hashed ticket
-            p2p_client.send_action_sync("JoinTicket", ticket)
+            # Delegate to P2P coordinator
+            self._notify_p2p_lobby_join(party_id, is_leader)
+
+    def _notify_p2p_phase_change(self, new_phase: str):
+        """Notify P2P coordinator of phase change (async wrapper)"""
+        if hasattr(p2p_client, 'loop') and p2p_client.loop and p2p_client.loop.is_running():
+            asyncio.run_coroutine_threadsafe(
+                self.p2p_coordinator.on_phase_change(new_phase),
+                p2p_client.loop
+            )
+
+    def _notify_p2p_lobby_join(self, party_id: str, is_leader: bool):
+        """Notify P2P coordinator of lobby join (async wrapper)"""
+        if hasattr(p2p_client, 'loop') and p2p_client.loop and p2p_client.loop.is_running():
+            asyncio.run_coroutine_threadsafe(
+                self.p2p_coordinator.on_lobby_join(party_id, is_leader),
+                p2p_client.loop
+            )

@@ -9,11 +9,13 @@ from .lcu_properties import LCUProperties
 from .lcu_skin_selection import LCUSkinSelection
 from .lcu_game_mode import LCUGameMode
 from .lcu_swiftplay import LCUSwiftplay
+from .lcu_party_chat import LCUPartyChat
 
 __all__ = [
     'LCUProperties',
     'LCUSkinSelection',
     'LCUGameMode',
     'LCUSwiftplay',
+    'LCUPartyChat',
 ]
 

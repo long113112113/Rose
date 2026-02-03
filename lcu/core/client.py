@@ -13,6 +13,7 @@ from ..features.lcu_properties import LCUProperties
 from ..features.lcu_skin_selection import LCUSkinSelection
 from ..features.lcu_game_mode import LCUGameMode
 from ..features.lcu_swiftplay import LCUSwiftplay
+from ..features.lcu_party_chat import LCUPartyChat
 
 
 class LCU:
@@ -35,6 +36,7 @@ class LCU:
         self._skin_selection = LCUSkinSelection(self._api, self._connection)
         self._game_mode = LCUGameMode(self._properties)
         self._swiftplay = LCUSwiftplay(self._api, self._game_mode)
+        self._party_chat = LCUPartyChat(self._api)
     
     # Connection properties (delegated to connection)
     @property
@@ -176,3 +178,35 @@ class LCU:
     def get_champion_name_by_id(self, champion_id: int) -> Optional[str]:
         """Get champion name by champion ID"""
         return self._properties.get_champion_name_by_id(champion_id)
+
+    # Party chat methods (delegated to party chat handler)
+    @property
+    def party_chat(self) -> "LCUPartyChat":
+        """Access party chat handler directly"""
+        return self._party_chat
+
+    def am_i_party_host(self) -> bool:
+        """Check if local player is party host"""
+        return self._party_chat.am_i_host()
+
+    def send_party_ticket(self, ticket: str) -> bool:
+        """Send gossip ticket to party chat"""
+        return self._party_chat.send_ticket(ticket)
+
+    def send_party_endpoint(self, endpoint_id: str, index: int) -> bool:
+        """Send endpoint ID to party chat"""
+        return self._party_chat.send_endpoint(endpoint_id, index)
+
+    def broadcast_party_p2p_info(self, ticket: str, endpoints: list) -> bool:
+        """Host broadcasts all P2P connection info"""
+        return self._party_chat.broadcast_all_endpoints(ticket, endpoints)
+
+    def get_party_p2p_info(self, host_only: bool = True) -> dict:
+        """Get P2P info from party chat messages"""
+        conv_id = self._party_chat.get_party_conversation_id()
+        if not conv_id:
+            return {"ticket": None, "endpoints": []}
+        
+        messages = self._party_chat.get_chat_messages(conv_id)
+        host_id = self._party_chat.get_host_summoner_id() if host_only else None
+        return self._party_chat.parse_rose_messages(messages, host_id)

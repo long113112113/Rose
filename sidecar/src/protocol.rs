@@ -4,6 +4,7 @@ use serde::{Deserialize, Serialize};
 #[serde(tag = "action", content = "payload")]
 pub enum ClientMessage {
     CreateTicket,
+    GetNodeId,
     JoinTicket(String),
     UpdateSkin {
         skin_id: u32,
@@ -17,6 +18,7 @@ pub enum ClientMessage {
 #[serde(tag = "event", content = "data")]
 pub enum ServerMessage {
     TicketCreated(String),
+    NodeId(String),
     JoinedRoom {
         ticket: String,
     },

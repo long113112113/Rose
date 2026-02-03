@@ -167,3 +167,46 @@ class LCUAPI:
             except requests.exceptions.RequestException:
                 return None
 
+    def post(self, path: str, json_data, timeout: float = 1.0) -> Optional[requests.Response]:
+        """Make POST request to LCU API
+
+        Args:
+            path: API endpoint path
+            json_data: JSON-serializable data to send
+            timeout: Request timeout in seconds
+
+        Returns:
+            Response object or None if failed
+        """
+        if not self.connection.ok:
+            self.connection.refresh_if_needed()
+            if not self.connection.ok:
+                return None
+
+        url = (self.connection.base or "") + path
+
+        try:
+            t0 = time.perf_counter()
+            resp = self.connection.session.post(
+                url,
+                json=json_data,
+                timeout=timeout,
+            )
+            dt_ms = (time.perf_counter() - t0) * 1000.0
+            log.debug(f"[LCU] POST {path} -> {getattr(resp, 'status_code', 'None')} in {dt_ms:.1f}ms")
+            return resp
+        except Exception as exc:
+            log.warning(f"[LCU] POST {path} failed ({type(exc).__name__}): {exc}")
+            self.connection.refresh_if_needed(force=True)
+            if not self.connection.ok:
+                return None
+            try:
+                resp = self.connection.session.post(
+                    url,
+                    json=json_data,
+                    timeout=timeout,
+                )
+                return resp
+            except Exception as exc2:
+                log.warning(f"[LCU] POST(retry) {path} failed ({type(exc2).__name__}): {exc2}")
+                return None

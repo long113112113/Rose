@@ -30,6 +30,8 @@ class P2PClient:
         self._running = False
         self._reconnect_task = None
         self._job_handle = None
+        self._node_id_future: Optional[asyncio.Future] = None
+        self._my_node_id: Optional[str] = None
 
     async def start(self, manage_process=True):
         """Start the sidecar process and connect to it."""
@@ -109,13 +111,49 @@ class P2PClient:
                 log.debug(f"P2P Event: {event_type}")
                 log.debug(f"P2P Data: {json.dumps(payload, ensure_ascii=False)}")
 
-                if event_type in self._callbacks:
+                # Handle NodeId response
+                if event_type == "NodeId" and self._node_id_future:
+                    self._my_node_id = payload
+                    self._node_id_future.set_result(payload)
+                    self._node_id_future = None
+                elif event_type in self._callbacks:
                     await self._callbacks[event_type](payload)
                     
             except json.JSONDecodeError:
                 log.warn(f"Received invalid JSON from sidecar: {message}")
             except Exception as e:
                 log.error(f"Error handling P2P message: {e}")
+
+    async def get_node_id(self, timeout: float = 5.0) -> Optional[str]:
+        """Get the sidecar's node ID.
+        
+        Args:
+            timeout: Max seconds to wait for response
+            
+        Returns:
+            Node ID string or None if failed
+        """
+        if self._my_node_id:
+            return self._my_node_id
+            
+        if not self._connected:
+            log.warning("Cannot get node ID, sidecar not connected")
+            return None
+        
+        self._node_id_future = asyncio.get_running_loop().create_future()
+        await self.send_action("GetNodeId", None)
+        
+        try:
+            result = await asyncio.wait_for(self._node_id_future, timeout=timeout)
+            return result
+        except asyncio.TimeoutError:
+            log.warning("Timeout waiting for NodeId from sidecar")
+            self._node_id_future = None
+            return None
+
+    def get_cached_node_id(self) -> Optional[str]:
+        """Get cached node ID without async call."""
+        return self._my_node_id
 
     async def send_action(self, action: str, payload: Any = None):
         """Send a command to the sidecar."""
