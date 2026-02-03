@@ -117,10 +117,10 @@ class P2PCoordinator:
         # Join the gossip room
         self.p2p_client.send_action_sync("JoinTicket", self._current_ticket)
 
-        # Broadcast to party chat
-        await self._broadcast_all_info()
+        # Note: Don't broadcast yet - party chat only exists when 2+ members
+        # Broadcast will happen in on_member_join when someone joins
 
-        log.info(f"[P2P] Host created room: {topic_hash[:16]}...")
+        log.info(f"[P2P] Host created room: {topic_hash[:16]}... (waiting for members to broadcast)")
 
     async def _handle_guest_join(self):
         """Handle joining as guest (non-host)"""
@@ -149,10 +149,15 @@ class P2PCoordinator:
         # Join the gossip room with ticket
         self.p2p_client.send_action_sync("JoinTicket", ticket)
 
-        # Send my endpoint to chat
-        self.lcu.send_party_endpoint(self._my_node_id, self._my_endpoint_index)
-
-        log.info(f"[P2P] Guest joined room, endpoint index: {self._my_endpoint_index}")
+        # Send my endpoint to chat (with retry for safety)
+        for attempt in range(3):
+            if self.lcu.send_party_endpoint(self._my_node_id, self._my_endpoint_index):
+                log.info(f"[P2P] Guest joined room, endpoint index: {self._my_endpoint_index}")
+                return
+            if attempt < 2:
+                await asyncio.sleep(0.3)
+        
+        log.warning("[P2P] Guest failed to send endpoint after retries")
 
     async def on_member_join(self, summoner_id: str):
         """Called when a new member joins party (Host only)
@@ -265,20 +270,32 @@ class P2PCoordinator:
                 self._known_endpoints.append((idx, node_id))
                 log.info(f"[P2P] Synced endpoint {idx}: {node_id[:16]}...")
 
-    async def _broadcast_all_info(self):
-        """Host broadcasts ticket and all known endpoints"""
+    async def _broadcast_all_info(self, max_retries: int = 5, delay: float = 0.5):
+        """Host broadcasts ticket and all known endpoints
+        
+        Args:
+            max_retries: Maximum retry attempts if conversation not ready
+            delay: Delay between retries in seconds
+        """
         if not self._is_host or not self._current_ticket:
             return
 
-        success = self.lcu.broadcast_party_p2p_info(
-            self._current_ticket,
-            self._known_endpoints
-        )
+        # Retry with delay - conversation may not be ready immediately after lobby join
+        for attempt in range(max_retries):
+            success = self.lcu.broadcast_party_p2p_info(
+                self._current_ticket,
+                self._known_endpoints
+            )
 
-        if success:
-            log.info(f"[P2P] Broadcast: ticket + {len(self._known_endpoints)} endpoints")
-        else:
-            log.warning("[P2P] Failed to broadcast P2P info")
+            if success:
+                log.info(f"[P2P] Broadcast: ticket + {len(self._known_endpoints)} endpoints")
+                return
+            
+            if attempt < max_retries - 1:
+                log.debug(f"[P2P] Conversation not ready, retrying in {delay}s... ({attempt + 1}/{max_retries})")
+                await asyncio.sleep(delay)
+        
+        log.warning("[P2P] Failed to broadcast P2P info after retries")
 
     def reset(self):
         """Reset coordinator state (e.g., when leaving party)"""
