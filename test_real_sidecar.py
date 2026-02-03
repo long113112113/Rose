@@ -13,7 +13,7 @@ BIN_NAME = "sidecar.exe" if IS_WINDOWS else "sidecar"
 WS_URI = "ws://127.0.0.1:13337"
 
 # Target Room ID and Response Payload
-TARGET_ROOM_ID = "499250ef-7eb8-44e3-b9ea-2f921dffbc56"
+TARGET_ROOM_ID = "5f8c9d8a-3ec6-492f-8609-d3799aa128db"
 BRAUM_PAYLOAD = {
     "action": "UpdateSkin",
     "payload": {
