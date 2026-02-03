@@ -475,6 +475,7 @@
       maxWidth: "300px",
       width: "auto",
       boxSizing: "border-box",
+      pointerEvents: "none",
     });
 
     // Create toast-body div
@@ -760,6 +761,7 @@
     // Close button — lets the user dismiss the popup and cancel injection
     const closeBtn = document.createElement("div");
     closeBtn.className = "lol-uikit-dialog-frame-toast-close-button";
+    closeBtn.style.pointerEvents = "auto";
     closeBtn.addEventListener("click", () => {
       removeHistoricSkinName();
       dismissActivePopup();
