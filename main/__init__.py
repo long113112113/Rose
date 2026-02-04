@@ -141,10 +141,6 @@ def run_league_unlock(args: Optional[argparse.Namespace] = None,
     # Keep the Windows "Apps & features" version in sync after auto-updates
     _update_registry_version()
 
-    # Clean up old Pengu Loader IFEO registry entry that can cause client crashes
-    # This runs on every startup to handle both fresh installs and updates
-    pengu_loader.cleanup_old_pengu_ifeo()
-
     # Safety net: if a previous session didn't shut down cleanly, deactivate
     # Pengu Loader before we re-activate it later in the startup sequence.
     pengu_loader.cleanup_if_dirty()
@@ -155,7 +151,11 @@ def run_league_unlock(args: Optional[argparse.Namespace] = None,
     
     # Setup logging and cleanup
     setup_logging_and_cleanup(args)
-    
+
+    # Clean up old Pengu Loader IFEO registry entry that can cause client crashes
+    # This runs on every startup to handle both fresh installs and updates
+    pengu_loader.cleanup_old_pengu_ifeo()
+
     # Initialize system tray manager immediately to hide console
     tray_manager = initialize_tray_manager(args)
     
