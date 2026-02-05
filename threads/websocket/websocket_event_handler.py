@@ -53,7 +53,7 @@ class WebSocketEventHandler:
         self.swiftplay_handler = swiftplay_handler
         
         # Initialize P2P coordinator
-        self.p2p_coordinator = P2PCoordinator(lcu, p2p_client, state)
+        self.p2p_coordinator = P2PCoordinator(p2p_client, state)
     
     def handle_message(self, ws, msg):
         """Handle incoming WebSocket message"""
@@ -309,43 +309,18 @@ class WebSocketEventHandler:
         if not data:
             # Lobby cleared (e.g. left party)
             self.state.current_party_id = None
-            self.state.current_party_members = set()
             self.p2p_coordinator.reset()
             return
 
         party_id = data.get("partyId")
-        local_member = data.get("localMember", {})
-        is_leader = local_member.get("isLeader", False)
-        
-        # Track current members
-        members = data.get("members", [])
-        current_member_ids = {str(m.get("summonerId")) for m in members if m.get("summonerId")}
-        
-        # Initialize member tracking if not exists
-        if not hasattr(self.state, 'current_party_members'):
-            self.state.current_party_members = set()
         
         # Check for new party join
         if party_id and party_id != self.state.current_party_id:
-            log.info(f"[WS] Lobby PartyID detected: {party_id[:8]}..., isLeader: {is_leader}")
-            
-            # Update state
+            log.info(f"[WS] Lobby PartyID detected: {party_id[:8]}...")
             self.state.current_party_id = party_id
-            self.state.current_party_members = current_member_ids
             
-            # Delegate to P2P coordinator
-            self._notify_p2p_lobby_join(party_id, is_leader)
-        
-        # Check for new members joining (only if we're the host)
-        elif party_id and is_leader:
-            new_members = current_member_ids - self.state.current_party_members
-            if new_members:
-                log.info(f"[WS] New member(s) joined party: {len(new_members)}")
-                self.state.current_party_members = current_member_ids
-                
-                # Notify P2P coordinator for each new member
-                for member_id in new_members:
-                    self._notify_p2p_member_join(member_id)
+            # Delegate to P2P coordinator - NodeMaster handles peer discovery
+            self._notify_p2p_lobby_join(party_id)
 
     def _notify_p2p_phase_change(self, new_phase: str):
         """Notify P2P coordinator of phase change (async wrapper)"""
@@ -355,18 +330,12 @@ class WebSocketEventHandler:
                 p2p_client.loop
             )
 
-    def _notify_p2p_lobby_join(self, party_id: str, is_leader: bool):
+    def _notify_p2p_lobby_join(self, party_id: str):
         """Notify P2P coordinator of lobby join (async wrapper)"""
         if hasattr(p2p_client, 'loop') and p2p_client.loop and p2p_client.loop.is_running():
             asyncio.run_coroutine_threadsafe(
-                self.p2p_coordinator.on_lobby_join(party_id, is_leader),
+                self.p2p_coordinator.on_lobby_join(party_id),
                 p2p_client.loop
             )
 
-    def _notify_p2p_member_join(self, summoner_id: str):
-        """Notify P2P coordinator of member join (async wrapper)"""
-        if hasattr(p2p_client, 'loop') and p2p_client.loop and p2p_client.loop.is_running():
-            asyncio.run_coroutine_threadsafe(
-                self.p2p_coordinator.on_member_join(summoner_id),
-                p2p_client.loop
-            )
+

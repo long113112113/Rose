@@ -22,11 +22,11 @@ log = get_logger()
 class P2PCoordinator:
     """Simplified P2P coordinator using NodeMaster for peer discovery"""
 
-    # Phases where P2P is active (in lobby, ready to sync skins)
-    ACTIVE_PHASES = ("Lobby", "None", None)
+    # Phases where P2P is active (in lobby or champ select, ready to sync skins)
+    ACTIVE_PHASES = ("Lobby", "ChampSelect", "None", None)
     
     # Phases where P2P should disconnect (game in progress, no sync needed)
-    DISCONNECT_PHASES = ("ChampSelect", "InProgress", "WaitingForStats", "EndOfGame", "Reconnect")
+    DISCONNECT_PHASES = ("InProgress", "WaitingForStats", "EndOfGame", "Reconnect")
 
     def __init__(self, p2p_client: "P2PClient", state: "SharedState"):
         """Initialize P2P coordinator
@@ -79,7 +79,7 @@ class P2PCoordinator:
         elif not was_active and self._is_active:
             log.debug(f"[P2P] Phase active: {new_phase}")
 
-    async def on_lobby_join(self, party_id: str, is_leader: bool = False):
+    async def on_lobby_join(self, party_id: str):
         """Called when user joins a lobby
 
         With NodeMaster, both host and guest use the same flow.
@@ -87,7 +87,6 @@ class P2PCoordinator:
 
         Args:
             party_id: The party ID from LCU
-            is_leader: Whether local player is party leader (not used with NodeMaster)
         """
         if not self.is_active():
             log.debug("[P2P] Not in active phase, skipping lobby join")
