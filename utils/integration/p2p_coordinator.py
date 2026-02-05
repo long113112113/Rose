@@ -1,19 +1,18 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-P2P Coordinator
-Coordinates P2P connection setup via LCU party chat
-Only active during Lobby phase for performance
+P2P Coordinator (NodeMaster version)
+Simplified P2P connection setup via NodeMaster server.
+No longer uses party chat - all peer discovery is handled by NodeMaster.
 """
 
-import asyncio
 import hashlib
 from typing import Optional, TYPE_CHECKING
 
 from utils.core.logging import get_logger
+from config import NODEMASTER_URL
 
 if TYPE_CHECKING:
-    from lcu import LCU
     from utils.integration.p2p_client import P2PClient
     from state import SharedState
 
@@ -21,39 +20,38 @@ log = get_logger()
 
 
 class P2PCoordinator:
-    """Coordinates P2P connection setup via party chat"""
+    """Simplified P2P coordinator using NodeMaster for peer discovery"""
 
-    # Phases where P2P chat exchange is active
+    # Phases where P2P is active (in lobby, ready to sync skins)
     ACTIVE_PHASES = ("Lobby", "None", None)
-    # Phases where P2P chat exchange is disabled for performance
-    INACTIVE_PHASES = ("ChampSelect", "InProgress", "WaitingForStats", "EndOfGame")
+    
+    # Phases where P2P should disconnect (game in progress, no sync needed)
+    DISCONNECT_PHASES = ("ChampSelect", "InProgress", "WaitingForStats", "EndOfGame", "Reconnect")
 
-    def __init__(self, lcu: "LCU", p2p_client: "P2PClient", state: "SharedState"):
+    def __init__(self, p2p_client: "P2PClient", state: "SharedState"):
         """Initialize P2P coordinator
 
         Args:
-            lcu: LCU client instance
             p2p_client: P2P client instance
             state: Shared application state
         """
-        self.lcu = lcu
         self.p2p_client = p2p_client
         self.state = state
 
-        self._is_host = False
-        self._known_endpoints: list[tuple[int, str]] = []  # List of (index, node_id)
-        self._my_node_id: Optional[str] = None
-        self._current_ticket: Optional[str] = None
-        self._my_endpoint_index = 0
-        self._is_active = True
         self._current_party_id: Optional[str] = None
+        self._current_ticket: Optional[str] = None
+        self._is_active = True
+        self._is_connected = False  # Track P2P connection state
+
+        # NodeMaster URL from config
+        self._nodemaster_url = NODEMASTER_URL
 
     def is_active(self) -> bool:
         """Check if P2P coordinator should be active based on phase"""
         return self.state.phase in self.ACTIVE_PHASES
 
     async def on_phase_change(self, new_phase: str):
-        """Handle phase changes for performance optimization
+        """Handle phase changes - disconnect when entering game, reconnect when back to lobby
 
         Args:
             new_phase: The new gameflow phase
@@ -61,247 +59,78 @@ class P2PCoordinator:
         was_active = self._is_active
         self._is_active = new_phase in self.ACTIVE_PHASES
 
-        if was_active and not self._is_active:
-            log.info(f"[P2P] Pausing P2P chat listener - phase: {new_phase}")
-        elif not was_active and self._is_active:
-            log.info(f"[P2P] Resuming P2P chat listener - phase: {new_phase}")
+        # Disconnect when entering game phases to reduce load
+        if new_phase in self.DISCONNECT_PHASES and self._is_connected:
+            log.info(f"[P2P] Entering {new_phase}, disconnecting to reduce load")
+            self.p2p_client.leave_room_sync()
+            self._is_connected = False
+        
+        # Reconnect when returning to Lobby (if we have a party)
+        elif new_phase in self.ACTIVE_PHASES and not self._is_connected and self._current_party_id:
+            log.info(f"[P2P] Returning to {new_phase}, reconnecting to party")
+            self.p2p_client.join_via_nodemaster_sync(
+                ticket=self._current_ticket,
+                nodemaster_url=self._nodemaster_url
+            )
+            self._is_connected = True
 
-    async def on_lobby_join(self, party_id: str, is_leader: bool):
+        if was_active and not self._is_active:
+            log.debug(f"[P2P] Phase inactive: {new_phase}")
+        elif not was_active and self._is_active:
+            log.debug(f"[P2P] Phase active: {new_phase}")
+
+    async def on_lobby_join(self, party_id: str, is_leader: bool = False):
         """Called when user joins a lobby
+
+        With NodeMaster, both host and guest use the same flow.
+        The NodeMaster server handles peer discovery.
 
         Args:
             party_id: The party ID from LCU
-            is_leader: Whether local player is party leader
+            is_leader: Whether local player is party leader (not used with NodeMaster)
         """
         if not self.is_active():
-            log.debug("[P2P] Not in active phase, skipping lobby join handler")
+            log.debug("[P2P] Not in active phase, skipping lobby join")
             return
 
-        # Reset state for new party
-        if party_id != self._current_party_id:
-            self._known_endpoints = []
-            self._current_ticket = None
-            self._my_endpoint_index = 0
-            self._current_party_id = party_id
+        # Skip if already connected to same party
+        if party_id == self._current_party_id and self._is_connected:
+            log.debug(f"[P2P] Already connected to party {party_id[:8]}..., skipping")
+            return
 
-        self._is_host = is_leader
-
-        # Get my node ID from sidecar
-        if not self._my_node_id:
-            self._my_node_id = await self.p2p_client.get_node_id()
-            if not self._my_node_id:
-                log.warning("[P2P] Failed to get node ID from sidecar")
-                return
-
-        log.info(f"[P2P] Lobby join - party: {party_id[:8]}..., host: {is_leader}")
-
-        if is_leader:
-            await self._handle_host_join(party_id)
-        else:
-            await self._handle_guest_join()
-
-    async def _handle_host_join(self, party_id: str):
-        """Handle joining as party host/leader
-
-        Args:
-            party_id: The party ID
-        """
         # Create ticket from party ID hash
-        topic_hash = hashlib.sha256(party_id.encode()).hexdigest()
-        self._current_ticket = f"{topic_hash}|{self._my_node_id}"
+        ticket = hashlib.sha256(party_id.encode()).hexdigest()
 
-        # Host is always endpoint 1
-        self._my_endpoint_index = 1
-        self._known_endpoints = [(1, self._my_node_id)]
-
-        # Join the gossip room
-        self.p2p_client.send_action_sync("JoinTicket", self._current_ticket)
-
-        # Note: Don't broadcast yet - party chat only exists when 2+ members
-        # Broadcast will happen in on_member_join when someone joins
-
-        log.info(f"[P2P] Host created room: {topic_hash[:16]}... (waiting for members to broadcast)")
-
-    async def _handle_guest_join(self):
-        """Handle joining as guest (non-host)"""
-        # Read chat to get P2P info from host
-        p2p_info = self.lcu.get_party_p2p_info(host_only=True)
-
-        ticket = p2p_info.get("ticket")
-        endpoints = p2p_info.get("endpoints", [])
-
-        if not ticket:
-            log.warning("[P2P] No ticket found in party chat, waiting for host to broadcast")
-            return
-
+        self._current_party_id = party_id
         self._current_ticket = ticket
 
-        # Sync endpoints from host
-        self._sync_endpoints_from_host(endpoints)
+        log.info(f"[P2P] Joining party via NodeMaster: {party_id[:8]}...")
 
-        # Determine my endpoint index (next available)
-        existing_indices = [idx for idx, _ in self._known_endpoints]
-        self._my_endpoint_index = max(existing_indices, default=0) + 1
+        # Send join command to sidecar
+        # Sidecar will handle NodeMaster connection and peer discovery
+        self.p2p_client.join_via_nodemaster_sync(
+            ticket=ticket,
+            nodemaster_url=self._nodemaster_url
+        )
+        self._is_connected = True
 
-        # Add myself to known endpoints
-        self._known_endpoints.append((self._my_endpoint_index, self._my_node_id))
-
-        # Join the gossip room with ticket
-        self.p2p_client.send_action_sync("JoinTicket", ticket)
-
-        # Send my endpoint to chat (with retry for safety)
-        for attempt in range(3):
-            if self.lcu.send_party_endpoint(self._my_node_id, self._my_endpoint_index):
-                log.info(f"[P2P] Guest joined room, endpoint index: {self._my_endpoint_index}")
-                return
-            if attempt < 2:
-                await asyncio.sleep(0.3)
-        
-        log.warning("[P2P] Guest failed to send endpoint after retries")
-
-    async def on_member_join(self, summoner_id: str):
-        """Called when a new member joins party (Host only)
-
-        Args:
-            summoner_id: The new member's summoner ID
-        """
-        if not self._is_host or not self.is_active():
-            return
-
-        log.info(f"[P2P] New member joined, re-broadcasting P2P info")
-
-        # Re-broadcast all info for new member
-        await self._broadcast_all_info()
-
-    async def on_chat_message(self, message: dict):
-        """Called when party chat message received
-
-        Args:
-            message: The chat message dict from LCU event
-        """
-        if not self.is_active():
-            return
-
-        body = message.get("body", "")
-
-        # Only process Rose protocol messages
-        if not body.startswith("[ROSE-"):
-            return
-
-        # If I'm host, process new endpoint registrations
-        if self._is_host:
-            await self._process_guest_endpoint(message)
-        else:
-            # If I'm guest, update from host messages
-            host_id = self.lcu.party_chat.get_host_summoner_id()
-            if str(message.get("fromSummonerId")) == str(host_id):
-                await self._process_host_message(message)
-
-    async def _process_guest_endpoint(self, message: dict):
-        """Process endpoint registration from guest
-
-        Args:
-            message: The chat message dict
-        """
-        body = message.get("body", "")
-
-        # Parse endpoint message: [ROSE-EP:N]:nodeId
-        if body.startswith("[ROSE-EP:"):
-            import re
-            match = re.match(r"\[ROSE-EP:(\d+)\]:(.+)", body)
-            if match:
-                idx = int(match.group(1))
-                node_id = match.group(2)
-
-                # Check if this is a new endpoint
-                existing_ids = [nid for _, nid in self._known_endpoints]
-                if node_id not in existing_ids and node_id != self._my_node_id:
-                    self._known_endpoints.append((idx, node_id))
-                    log.info(f"[P2P] Host: Added new endpoint {idx}: {node_id[:16]}...")
-
-                    # Re-broadcast with new endpoint
-                    await self._broadcast_all_info()
-
-    async def _process_host_message(self, message: dict):
-        """Process message from host to update local state
-
-        Args:
-            message: The chat message dict
-        """
-        body = message.get("body", "")
-
-        # Parse ticket
-        if body.startswith("[ROSE-TICKET]:"):
-            ticket = body[len("[ROSE-TICKET]:"):]
-            if ticket != self._current_ticket:
-                self._current_ticket = ticket
-                # Re-join with new ticket
-                self.p2p_client.send_action_sync("JoinTicket", ticket)
-                log.info(f"[P2P] Updated ticket from host")
-
-        # Parse endpoint
-        elif body.startswith("[ROSE-EP:"):
-            import re
-            match = re.match(r"\[ROSE-EP:(\d+)\]:(.+)", body)
-            if match:
-                idx = int(match.group(1))
-                node_id = match.group(2)
-
-                # Sync this endpoint
-                existing_ids = [nid for _, nid in self._known_endpoints]
-                if node_id not in existing_ids and node_id != self._my_node_id:
-                    self._known_endpoints.append((idx, node_id))
-                    log.info(f"[P2P] Added peer from host: {node_id[:16]}...")
-
-    def _sync_endpoints_from_host(self, received_endpoints: list):
-        """Compare and update local endpoints with Host's broadcast
-
-        Args:
-            received_endpoints: List of (index, node_id) tuples from host
-        """
-        for idx, node_id in received_endpoints:
-            # Skip my own endpoint
-            if node_id == self._my_node_id:
-                continue
-
-            # Check if already known
-            existing_ids = [nid for _, nid in self._known_endpoints]
-            if node_id not in existing_ids:
-                self._known_endpoints.append((idx, node_id))
-                log.info(f"[P2P] Synced endpoint {idx}: {node_id[:16]}...")
-
-    async def _broadcast_all_info(self, max_retries: int = 5, delay: float = 0.5):
-        """Host broadcasts ticket and all known endpoints
-        
-        Args:
-            max_retries: Maximum retry attempts if conversation not ready
-            delay: Delay between retries in seconds
-        """
-        if not self._is_host or not self._current_ticket:
-            return
-
-        # Retry with delay - conversation may not be ready immediately after lobby join
-        for attempt in range(max_retries):
-            success = self.lcu.broadcast_party_p2p_info(
-                self._current_ticket,
-                self._known_endpoints
-            )
-
-            if success:
-                log.info(f"[P2P] Broadcast: ticket + {len(self._known_endpoints)} endpoints")
-                return
-            
-            if attempt < max_retries - 1:
-                log.debug(f"[P2P] Conversation not ready, retrying in {delay}s... ({attempt + 1}/{max_retries})")
-                await asyncio.sleep(delay)
-        
-        log.warning("[P2P] Failed to broadcast P2P info after retries")
+    async def on_lobby_leave(self):
+        """Called when user leaves the lobby"""
+        if self._current_party_id:
+            log.info(f"[P2P] Left party {self._current_party_id[:8]}...")
+            self._current_party_id = None
+            self._current_ticket = None
+            self._is_connected = False
+            # Notify sidecar to leave P2P room
+            self.p2p_client.leave_room_sync()
 
     def reset(self):
-        """Reset coordinator state (e.g., when leaving party)"""
-        self._is_host = False
-        self._known_endpoints = []
-        self._current_ticket = None
-        self._my_endpoint_index = 0
+        """Reset coordinator state and leave P2P room"""
+        if self._is_connected:
+            # Notify sidecar to leave P2P room
+            self.p2p_client.leave_room_sync()
         self._current_party_id = None
+        self._current_ticket = None
+        self._is_connected = False
         log.debug("[P2P] Coordinator state reset")
+

@@ -3,6 +3,7 @@ import json
 import logging
 import os
 import subprocess
+import threading
 import time
 from pathlib import Path
 from typing import Optional, Callable, Dict, Any
@@ -22,6 +23,7 @@ class P2PClient:
     URI = f"ws://127.0.0.1:{PORT}"
 
     def __init__(self):
+        log.info("[P2P] Initializing P2P Client (Updated logic)")
         self._websocket = None
         self._process: Optional[subprocess.Popen] = None
         self._connected = False
@@ -81,21 +83,46 @@ class P2PClient:
 
         try:
             log.info(f"Launching sidecar: {sidecar_path}")
+            
             # Hide console window on Windows
-            # startupinfo = subprocess.STARTUPINFO()
-            # startupinfo.dwFlags |= subprocess.STARTF_USESHOWWINDOW
+            startupinfo = None
+            if os.name == 'nt':
+                startupinfo = subprocess.STARTUPINFO()
+                startupinfo.dwFlags |= subprocess.STARTF_USESHOWWINDOW
+            
+            # Determine logs directory
+            from utils.core.paths import get_user_data_dir
+            logs_dir = get_user_data_dir() / "logs"
+            logs_dir.mkdir(parents=True, exist_ok=True)
+            
+            cmd = [str(sidecar_path), "--log-dir", str(logs_dir)]
             
             self._process = subprocess.Popen(
-                [str(sidecar_path)],
-                # startupinfo=startupinfo,
-                # stdout=subprocess.PIPE, # Capture output if needed
-                # stderr=subprocess.PIPE
+                cmd,
+                startupinfo=startupinfo,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                text=True,  # Text mode for easier reading
+                bufsize=1   # Line buffered
             )
+            
+            # Start threads to read output
+            threading.Thread(target=self._log_sidecar_output, args=(self._process.stdout, "STDOUT"), daemon=True).start()
+            threading.Thread(target=self._log_sidecar_output, args=(self._process.stderr, "STDERR"), daemon=True).start()
             
             if os.name == 'nt':
                 self._assign_job_object()
         except Exception as e:
             log.error(f"Failed to start sidecar: {e}")
+
+    def _log_sidecar_output(self, pipe, name):
+        """Read and log sidecar output"""
+        try:
+            for line in iter(pipe.readline, ''):
+                if line:
+                    log.info(f"[Sidecar] {line.strip()}")
+        except Exception:
+            pass
 
     async def _connect_loop(self):
         """Maintain WebSocket connection."""
@@ -200,6 +227,53 @@ class P2PClient:
             asyncio.run_coroutine_threadsafe(self.send_action(action, payload), self.loop)
         else:
             log.warning("Cannot send_action_sync: P2P loop not running")
+
+    async def join_via_nodemaster(self, ticket: str, nodemaster_url: str = None):
+        """Join a P2P room via NodeMaster server for peer discovery.
+        
+        This is the preferred method for joining P2P rooms. The sidecar will:
+        1. Connect to NodeMaster server
+        2. Register with the ticket to get peer list
+        3. Use the peer list to bootstrap iroh-gossip connections
+        
+        Args:
+            ticket: The room ticket (topic hash, 64 hex chars)
+            nodemaster_url: Optional custom NodeMaster URL (default: ws://127.0.0.1:31337)
+        """
+        payload = {
+            "ticket": ticket,
+            "nodemaster_url": nodemaster_url
+        }
+        await self.send_action("JoinViaNodeMaster", payload)
+        log.info(f"[P2P] Sent JoinViaNodeMaster for ticket: {ticket[:16]}...")
+
+    def join_via_nodemaster_sync(self, ticket: str, nodemaster_url: str = None):
+        """Thread-safe synchronous wrapper for join_via_nodemaster"""
+        if hasattr(self, 'loop') and self.loop and self.loop.is_running():
+            asyncio.run_coroutine_threadsafe(
+                self.join_via_nodemaster(ticket, nodemaster_url), 
+                self.loop
+            )
+        else:
+            log.warning("Cannot join_via_nodemaster_sync: P2P loop not running")
+
+    async def leave_room(self):
+        """Leave the current P2P room.
+        
+        This will:
+        1. Notify NodeMaster server (if connected)
+        2. Clean up gossip subscriptions
+        3. Trigger NeighborDown events for connected peers
+        """
+        await self.send_action("LeaveRoom", None)
+        log.info("[P2P] Sent LeaveRoom command")
+
+    def leave_room_sync(self):
+        """Thread-safe synchronous wrapper for leave_room"""
+        if hasattr(self, 'loop') and self.loop and self.loop.is_running():
+            asyncio.run_coroutine_threadsafe(self.leave_room(), self.loop)
+        else:
+            log.warning("Cannot leave_room_sync: P2P loop not running")
 
     def on(self, event: str, callback: Callable):
         """Register a callback for a specific event type."""

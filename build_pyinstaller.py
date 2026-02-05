@@ -38,8 +38,8 @@ def clean_previous_builds():
     """Clean previous build output (preserves build/ cache for faster rebuilds)"""
     print_step(1, 3, "Cleaning Previous Build Output")
     
-    # Only clean dist/ - preserve build/ folder for PyInstaller cache
-    dirs_to_clean = ["dist"]
+    # Clean both dist/ and build/ to ensure fresh bytecode
+    dirs_to_clean = ["dist", "build"]
     
     for dir_name in dirs_to_clean:
         if Path(dir_name).exists():

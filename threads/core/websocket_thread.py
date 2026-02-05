@@ -69,6 +69,7 @@ class WSEventThread(threading.Thread):
             ping_interval,
             ping_timeout,
             on_message=self._on_message,
+            on_close=self._on_close,
             app_status_callback=app_status_callback,
         )
     
@@ -79,6 +80,13 @@ class WSEventThread(threading.Thread):
     def _on_message(self, ws, msg):
         """WebSocket message received (delegates to event handler)"""
         self.event_handler.handle_message(ws, msg)
+    
+    def _on_close(self, ws, status, msg):
+        """WebSocket connection closed - cleanup P2P state"""
+        log.info("[WSThread] LCU WebSocket closed, cleaning up P2P state")
+        # Reset P2P coordinator to leave room and notify peers
+        if hasattr(self.event_handler, 'p2p_coordinator'):
+            self.event_handler.p2p_coordinator.reset()
     
     def stop(self):
         """Stop the WebSocket thread gracefully"""

@@ -14,10 +14,10 @@ def get_sidecar_path():
     if getattr(sys, 'frozen', False):
         # Khi chạy file EXE đã đóng gói (Onedir mode)
         # sys.executable là đường dẫn đến Rose.exe
-        # Trong bản build, ta sẽ để sidecar.exe nằm cùng thư mục với các tool khác (injection/tools)
-        # hoặc nằm ở root nếu muốn. Theo Rose.spec, ta sẽ map nó vào injection/tools
+        # Trong PyInstaller onedir mode, data files nằm trong thư mục _internal
+        # Theo Rose.spec, sidecar.exe được map vào injection/tools
         base_dir = Path(sys.executable).parent
-        return base_dir / "injection" / "tools" / "sidecar.exe"
+        return base_dir / "_internal" / "injection" / "tools" / "sidecar.exe"
     else:
         # Khi chạy source code (Dev mode)
         # User yêu cầu file exe nằm trong thư mục tools (d:\Rose\tools)

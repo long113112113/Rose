@@ -588,27 +588,32 @@ class InjectionTrigger:
                     base_skin_id = champ_id * 1000
                     self._force_base_skin(base_skin_id)
 
-            # 2. Collect skins list for injection
+            # 2. Collect skins list for injection (using ID-based format for ZipResolver)
             skins_list = []
             
-            # Local unowned skin
+            # Local unowned skin - use effective ID (chroma if selected, else base skin)
             if not local_owned and ui_skin_id != 0:
+                # Determine the effective skin/chroma ID
+                is_chroma = selected_chroma_id and selected_chroma_id > ui_skin_id and selected_chroma_id < ui_skin_id + 100
+                effective_id = selected_chroma_id if is_chroma else ui_skin_id
                 skins_list.append({
-                    "skin_name": name,
-                    "chroma_id": selected_chroma_id if selected_chroma_id and selected_chroma_id > ui_skin_id and selected_chroma_id < ui_skin_id + 100 else None,
-                    "champion_name": cname,
+                    "skin_name": f"skin_{effective_id}",  # ID-based format for O(1) cache lookup
                     "champion_id": self.state.locked_champ_id or self.state.hovered_champ_id
                 })
+                log.debug(f"[INJECT] Local skin: skin_{effective_id} (chroma={is_chroma})")
             
-            # Peer skins from P2P sync
+            # Peer skins from P2P sync - use skin_id for accurate Chroma support
             if peer_skins:
                 log.info(f"[INJECT] Including {len(peer_skins)} peer skins in sync")
                 for peer_id, s in peer_skins.items():
-                    if s and s.get("champion_id") and s.get("skin_name") and not s.get("is_custom"):
+                    peer_skin_id = s.get("skin_id")
+                    peer_champion_id = s.get("champion_id")
+                    if s and peer_champion_id and peer_skin_id and not s.get("is_custom"):
                         skins_list.append({
-                            "skin_name": s.get("skin_name"),
-                            "champion_id": s.get("champion_id")
+                            "skin_name": f"skin_{peer_skin_id}",  # ID-based format
+                            "champion_id": peer_champion_id
                         })
+                        log.debug(f"[INJECT] Peer {peer_id}: skin_{peer_skin_id}")
             
             if not skins_list:
                 log.info("[INJECT] No skins to inject (all owned or base)")
