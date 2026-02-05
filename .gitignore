@@ -93,7 +93,8 @@ htmlcov/
 *.tmp
 *.bak
 *.backup
-sidecar/
+sidecar/target
+nodemaster/target
 license.dat
 config.ini
 injection/tools/hashes.game.txt
@@ -101,5 +102,4 @@ Pengu Loader/datastore
 injection/tools/.hashes_state.json
 
 chroma_issue.txt
-nodemaster/
 dev.ps1
