@@ -134,6 +134,7 @@ impl RoomManager {
     }
 
     /// Get stats for logging
+    #[allow(dead_code)]
     pub async fn stats(&self) -> (usize, usize) {
         let rooms = self.rooms.read().await;
         let clients = self.client_tickets.read().await;

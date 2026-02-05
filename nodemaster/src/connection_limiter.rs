@@ -2,7 +2,7 @@ use std::collections::HashMap;
 use std::net::IpAddr;
 use std::sync::Arc;
 use tokio::sync::Mutex;
-use tracing::{info, warn};
+use tracing::warn;
 
 /// Configuration
 const MAX_TOTAL_CONNECTIONS: usize = 1000;
@@ -73,15 +73,6 @@ impl ConnectionLimiter {
         inner.total_connections += 1;
         *inner.connections_per_ip.entry(ip).or_insert(0) += 1;
 
-        info!(
-            "[LIMIT] Connection accepted from {} ({}/{}), total: {}/{}",
-            ip,
-            ip_count + 1,
-            MAX_PER_IP,
-            inner.total_connections,
-            MAX_TOTAL_CONNECTIONS
-        );
-
         Ok(())
     }
 
@@ -97,11 +88,6 @@ impl ConnectionLimiter {
                 inner.connections_per_ip.remove(&ip);
             }
         }
-
-        info!(
-            "[LIMIT] Connection closed from {}, total: {}",
-            ip, inner.total_connections
-        );
     }
 
     /// Get current stats

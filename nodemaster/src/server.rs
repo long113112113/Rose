@@ -4,7 +4,7 @@ use futures::{SinkExt, StreamExt};
 use tokio::net::TcpStream;
 use tokio::sync::mpsc;
 use tokio_tungstenite::tungstenite::Message;
-use tracing::{error, info, warn};
+use tracing::{error, warn};
 
 use crate::connection_limiter::ConnectionLimiter;
 use crate::protocol::{ClientMessage, ServerMessage};
@@ -25,8 +25,6 @@ pub async fn handle_connection(
             return;
         }
     };
-
-    info!("New connection from: {}", addr);
 
     let (mut ws_sender, mut ws_receiver) = ws_stream.split();
 
@@ -61,7 +59,6 @@ pub async fn handle_connection(
                 continue;
             }
             Ok(Message::Close(_)) => {
-                info!("Client {} closing connection", addr);
                 break;
             }
             Ok(_) => continue,
@@ -84,13 +81,6 @@ pub async fn handle_connection(
 
         match client_msg {
             ClientMessage::Register { ticket, node_id } => {
-                info!(
-                    "Client {} registering as {} to ticket {}",
-                    addr,
-                    &node_id[..16.min(node_id.len())],
-                    &ticket[..16.min(ticket.len())]
-                );
-
                 // If already registered with different node_id, leave first
                 if let Some(ref old_id) = current_node_id {
                     if old_id != &node_id {
@@ -105,14 +95,10 @@ pub async fn handle_connection(
 
                 // Send current peers to client
                 let _ = tx.send(ServerMessage::Peers { node_ids: peers });
-
-                let (room_count, client_count) = rooms.stats().await;
-                info!("Stats: {} rooms, {} clients", room_count, client_count);
             }
 
             ClientMessage::Leave => {
                 if let Some(ref node_id) = current_node_id {
-                    info!("Client {} leaving", addr);
                     rooms.leave(node_id).await;
                     current_node_id = None;
                 }
@@ -127,7 +113,6 @@ pub async fn handle_connection(
     // Cleanup on disconnect
     if let Some(ref node_id) = current_node_id {
         rooms.leave(node_id).await;
-        info!("Client {} disconnected, cleaned up", addr);
     }
 
     // Release connection slot

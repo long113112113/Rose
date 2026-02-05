@@ -9,7 +9,7 @@ use std::sync::Arc;
 use std::time::Duration;
 use tokio::sync::{Mutex, mpsc};
 use tokio_tungstenite::connect_async;
-use tracing::{error, info, warn};
+use tracing::{error, warn};
 
 /// NodeMaster server address
 const NODEMASTER_URL: &str = "ws://127.0.0.1:31337";
@@ -106,11 +106,8 @@ impl NodeMasterClient {
         let mut attempt = 0u32;
 
         loop {
-            info!("[NM] Connecting to NodeMaster at {}", url);
-
             match connect_async(&url).await {
                 Ok((ws_stream, _)) => {
-                    info!("[NM] Connected to NodeMaster");
                     backoff_ms = INITIAL_BACKOFF_MS; // Reset backoff on success
                     attempt = 0;
 
@@ -125,7 +122,6 @@ impl NodeMasterClient {
                     {
                         let reg = registration.lock().await;
                         if let (Some(ticket), Some(node_id)) = (&reg.ticket, &reg.node_id) {
-                            info!("[NM] Auto re-registering to ticket");
                             let msg = NMClientMessage::Register {
                                 ticket: ticket.clone(),
                                 node_id: node_id.clone(),
@@ -152,7 +148,6 @@ impl NodeMasterClient {
 
                     match disconnect_reason {
                         DisconnectReason::Leave => {
-                            info!("[NM] Clean disconnect (Leave called)");
                             let _ = event_tx.send(NodeMasterEvent::Disconnected);
                             break; // Exit loop, no reconnect
                         }
@@ -161,7 +156,7 @@ impl NodeMasterClient {
                             // Fall through to reconnect
                         }
                         DisconnectReason::ServerClosed => {
-                            info!("[NM] Server closed connection");
+
                             // Fall through to reconnect
                         }
                     }
@@ -188,10 +183,7 @@ impl NodeMasterClient {
             let _ = event_tx.send(NodeMasterEvent::Reconnecting);
 
             // Wait with exponential backoff
-            info!(
-                "[NM] Reconnecting in {}ms (attempt {}/{})",
-                backoff_ms, attempt, MAX_RECONNECT_ATTEMPTS
-            );
+
             tokio::time::sleep(Duration::from_millis(backoff_ms)).await;
             backoff_ms = (backoff_ms * 2).min(MAX_BACKOFF_MS);
         }
@@ -256,21 +248,13 @@ impl NodeMasterClient {
                             if let Ok(msg) = serde_json::from_str::<NMServerMessage>(&text) {
                                 let event = match msg {
                                     NMServerMessage::Peers { node_ids } => {
-                                        info!("[NM] Received {} peers", node_ids.len());
+
                                         NodeMasterEvent::PeerList(node_ids)
                                     }
                                     NMServerMessage::PeerJoined { node_id } => {
-                                        info!(
-                                            "[NM] Peer joined: {}...",
-                                            &node_id[..16.min(node_id.len())]
-                                        );
                                         NodeMasterEvent::PeerJoined(node_id)
                                     }
                                     NMServerMessage::PeerLeft { node_id } => {
-                                        info!(
-                                            "[NM] Peer left: {}...",
-                                            &node_id[..16.min(node_id.len())]
-                                        );
                                         NodeMasterEvent::PeerLeft(node_id)
                                     }
                                     NMServerMessage::Pong => continue,

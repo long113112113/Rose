@@ -99,9 +99,6 @@ pub async fn handle_connection(stream: TcpStream, gossip: Gossip, my_node_id: St
                                 // Create ticket with our node ID so others can find us
                                 let ticket = encode_ticket(&topic_bytes, &my_node_id);
 
-                                info!("[CREATE] New topic: {:?}", topic_id);
-                                info!("[CREATE] Ticket with NodeID: {}", ticket);
-
                                 // subscribe (no bootstrap peers when creating - we ARE the first peer)
                                 match gossip.subscribe(topic_id, vec![]).await {
                                     Ok(sub) => {
@@ -173,7 +170,6 @@ pub async fn handle_connection(stream: TcpStream, gossip: Gossip, my_node_id: St
                                                     Ok(iroh_gossip::api::Event::NeighborUp(
                                                         peer_id,
                                                     )) => {
-                                                        info!("[GOSSIP] Peer joined: {}", peer_id);
                                                         let _ = tx_clone
                                                             .send(ServerMessage::PeerJoined {
                                                                 peer_id: peer_id.to_string(),
@@ -183,7 +179,6 @@ pub async fn handle_connection(stream: TcpStream, gossip: Gossip, my_node_id: St
                                                     Ok(iroh_gossip::api::Event::NeighborDown(
                                                         peer_id,
                                                     )) => {
-                                                        info!("[GOSSIP] Peer left: {}", peer_id);
                                                         let _ = tx_clone
                                                             .send(ServerMessage::PeerLeft {
                                                                 peer_id: peer_id.to_string(),
@@ -229,9 +224,6 @@ pub async fn handle_connection(stream: TcpStream, gossip: Gossip, my_node_id: St
                                         let bootstrap_peers: Vec<EndpointId> =
                                             bootstrap_node_id.into_iter().collect();
 
-                                        info!("[JOIN] Topic: {:?}", topic_id);
-                                        info!("[JOIN] Bootstrap peers: {:?}", bootstrap_peers);
-
                                         // Subscribe WITH bootstrap peers
                                         match gossip
                                             .subscribe(topic_id, bootstrap_peers.clone())
@@ -239,7 +231,6 @@ pub async fn handle_connection(stream: TcpStream, gossip: Gossip, my_node_id: St
                                         {
                                             Ok(sub) => {
                                                 _current_topic = Some(topic_id);
-                                                info!("[JOIN] Subscribed successfully!");
 
                                                 let (sender, mut stream) = sub.split();
                                                 current_topic_sender = Some(sender.clone());
@@ -250,15 +241,6 @@ pub async fn handle_connection(stream: TcpStream, gossip: Gossip, my_node_id: St
                                                         ticket: ticket.clone(),
                                                     })
                                                     .await;
-
-                                                // Send info about bootstrap
-                                                let _ = to_client_tx.send(ServerMessage::Log {
-                                                    level: "INFO".to_string(),
-                                                    message: format!(
-                                                        "Joined with {} bootstrap peer(s). Waiting for connection...",
-                                                        bootstrap_peers.len()
-                                                    ),
-                                                }).await;
 
                                                 let tx_clone = to_client_tx.clone();
                                                 let my_node_id_clone = my_node_id.clone();
@@ -285,7 +267,7 @@ pub async fn handle_connection(stream: TcpStream, gossip: Gossip, my_node_id: St
                                                                             skin_name,
                                                                             is_custom,
                                                                         } => {
-                                                                            info!("[RX] SkinUpdate from {}: skin_id={}", peer_id, skin_id);
+
                                                                             let _ = tx_clone.send(ServerMessage::RemoteSkinUpdate {
                                                                                 peer_id: peer_id.clone(),
                                                                                 skin_id,
@@ -331,7 +313,7 @@ pub async fn handle_connection(stream: TcpStream, gossip: Gossip, my_node_id: St
                                                                     peer_id,
                                                                 ),
                                                             ) => {
-                                                                info!("[GOSSIP] Peer joined: {}", peer_id);
+
                                                                 let _ = tx_clone
                                                                     .send(ServerMessage::PeerJoined {
                                                                         peer_id: peer_id.to_string(),
@@ -343,7 +325,7 @@ pub async fn handle_connection(stream: TcpStream, gossip: Gossip, my_node_id: St
                                                                     peer_id,
                                                                 ),
                                                             ) => {
-                                                                info!("[GOSSIP] Peer left: {}", peer_id);
+
                                                                 let _ = tx_clone
                                                                     .send(ServerMessage::PeerLeft {
                                                                         peer_id: peer_id.to_string(),
@@ -382,10 +364,6 @@ pub async fn handle_connection(stream: TcpStream, gossip: Gossip, my_node_id: St
                                 nodemaster_url,
                             } => {
                                 // Connect to NodeMaster for peer discovery
-                                info!(
-                                    "[NM-JOIN] Connecting to NodeMaster for ticket: {}...",
-                                    &ticket[..16.min(ticket.len())]
-                                );
 
                                 // Abort previous tasks
                                 if let Some(handle) = current_receiver_task.take() {
@@ -413,11 +391,6 @@ pub async fn handle_connection(stream: TcpStream, gossip: Gossip, my_node_id: St
                                             } else {
                                                 vec![]
                                             };
-
-                                        info!(
-                                            "[NM-JOIN] Got {} initial peers from NodeMaster",
-                                            initial_peers.len()
-                                        );
 
                                         // Convert peer strings to EndpointIds
                                         let bootstrap_peers: Vec<EndpointId> = initial_peers
@@ -455,10 +428,6 @@ pub async fn handle_connection(stream: TcpStream, gossip: Gossip, my_node_id: St
                                         {
                                             Ok(sub) => {
                                                 _current_topic = Some(topic_id);
-                                                info!(
-                                                    "[NM-JOIN] Subscribed to gossip with {} bootstrap peers",
-                                                    bootstrap_peers.len()
-                                                );
 
                                                 let (sender, mut stream) = sub.split();
                                                 current_topic_sender = Some(sender.clone());
@@ -482,7 +451,7 @@ pub async fn handle_connection(stream: TcpStream, gossip: Gossip, my_node_id: St
                                                                 if let Ok(gossip_msg) = serde_json::from_slice::<GossipMessage>(&msg.content) {
                                                                     match gossip_msg {
                                                                         GossipMessage::SkinUpdate { peer_id, skin_id, champion_id, skin_name, is_custom } => {
-                                                                            info!("[RX] SkinUpdate from {}: skin_id={}", peer_id, skin_id);
+
                                                                             let _ = tx_clone.send(ServerMessage::RemoteSkinUpdate {
                                                                                 peer_id: peer_id.clone(),
                                                                                 skin_id, champion_id, skin_name, is_custom
@@ -504,13 +473,13 @@ pub async fn handle_connection(stream: TcpStream, gossip: Gossip, my_node_id: St
                                                                 }
                                                             }
                                                             Ok(iroh_gossip::api::Event::NeighborUp(peer_id)) => {
-                                                                info!("[GOSSIP] Peer joined: {}", peer_id);
+
                                                                 let _ = tx_clone.send(ServerMessage::PeerJoined {
                                                                     peer_id: peer_id.to_string(),
                                                                 }).await;
                                                             }
                                                             Ok(iroh_gossip::api::Event::NeighborDown(peer_id)) => {
-                                                                info!("[GOSSIP] Peer left: {}", peer_id);
+
                                                                 let _ = tx_clone.send(ServerMessage::PeerLeft {
                                                                     peer_id: peer_id.to_string(),
                                                                 }).await;
@@ -523,7 +492,7 @@ pub async fn handle_connection(stream: TcpStream, gossip: Gossip, my_node_id: St
 
                                                 // Task to handle NodeMaster events (new peers joining later)
                                                 let _gossip_clone = gossip.clone();
-                                                let tx_clone2 = to_client_tx.clone();
+                                                let _tx_clone2 = to_client_tx.clone();
                                                 let _topic_id_clone = topic_id;
                                                 let nm_handle = tokio::spawn(async move {
                                                     while let Some(event) = event_rx.recv().await {
@@ -535,30 +504,14 @@ pub async fn handle_connection(stream: TcpStream, gossip: Gossip, my_node_id: St
                                                                 if let Ok(_endpoint_id) =
                                                                     EndpointId::from_str(&node_id)
                                                                 {
-                                                                    info!(
-                                                                        "[NM] Adding late-joining peer to gossip: {}...",
-                                                                        &node_id[..16
-                                                                            .min(node_id.len())]
-                                                                    );
+
                                                                     // Re-subscribe with new peer to add them
                                                                     // Note: iroh-gossip handles this via ALPN discovery
                                                                 }
-                                                                let _ = tx_clone2.send(ServerMessage::Log {
-                                                                    level: "INFO".to_string(),
-                                                                    message: format!("NodeMaster: new peer discovered"),
-                                                                }).await;
                                                             }
-                                                            NodeMasterEvent::PeerLeft(node_id) => {
-                                                                info!(
-                                                                    "[NM] Peer left via NodeMaster: {}...",
-                                                                    &node_id
-                                                                        [..16.min(node_id.len())]
-                                                                );
+                                                            NodeMasterEvent::PeerLeft(_node_id) => {
                                                             }
                                                             NodeMasterEvent::Disconnected => {
-                                                                warn!(
-                                                                    "[NM] Disconnected from NodeMaster"
-                                                                );
                                                                 break;
                                                             }
                                                             NodeMasterEvent::Error(msg) => {
@@ -614,23 +567,8 @@ pub async fn handle_connection(stream: TcpStream, gossip: Gossip, my_node_id: St
                                         is_custom,
                                     };
                                     if let Ok(json) = serde_json::to_vec(&payload) {
-                                        info!(
-                                            "[TX] Broadcasting skin_id={}, champion_id={}",
-                                            skin_id, champion_id
-                                        );
                                         match sender.broadcast(Bytes::from(json)).await {
-                                            Ok(_) => {
-                                                info!("[TX] Broadcast queued successfully");
-                                                let _ = to_client_tx
-                                                    .send(ServerMessage::Log {
-                                                        level: "DEBUG".to_string(),
-                                                        message: format!(
-                                                            "Broadcast queued for skin_id={}",
-                                                            skin_id
-                                                        ),
-                                                    })
-                                                    .await;
-                                            }
+                                            Ok(_) => {}
                                             Err(e) => {
                                                 error!("[TX] Broadcast failed: {}", e);
                                                 let _ = to_client_tx
@@ -653,8 +591,6 @@ pub async fn handle_connection(stream: TcpStream, gossip: Gossip, my_node_id: St
                                 }
                             }
                             ClientMessage::LeaveRoom => {
-                                info!("[LEAVE] Leaving current room");
-
                                 // 1. Notify NodeMaster (if connected)
                                 if let Some(ref client) = _nodemaster_client {
                                     client.leave();
@@ -676,7 +612,6 @@ pub async fn handle_connection(stream: TcpStream, gossip: Gossip, my_node_id: St
                                 _current_topic = None;
 
                                 let _ = to_client_tx.send(ServerMessage::LeftRoom).await;
-                                info!("[LEAVE] Left room successfully");
                             }
                         }
                     }
