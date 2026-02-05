@@ -126,7 +126,7 @@ WS_RECONNECT_DELAY = 1.0       # Seconds to wait before WebSocket reconnect
 
 # NodeMaster server URL - change this to your VPS IP when deploying
 # Format: ws://ip:port or wss://domain:port for SSL
-NODEMASTER_URL = "ws://127.0.0.1:31337"  # Default localhost for testing
+NODEMASTER_URL = "ws://14.225.206.162:31337"  # Production VPS
 
 # Lock detection timing
 # Note: Loadout timer ONLY starts on FINALIZATION phase (final countdown before game start)
