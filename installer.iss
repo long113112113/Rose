@@ -167,7 +167,6 @@ procedure CurStepChanged(CurStep: TSetupStep);
 begin
   if CurStep = ssPostInstall then
   begin
-    // Clean up old Pengu Loader IFEO entries that can cause client crashes
     _CleanupPenguIFEO();
 
     // Create registry entries for Windows Apps list
