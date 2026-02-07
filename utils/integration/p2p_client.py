@@ -54,14 +54,10 @@ class P2PClient:
             base_path / "sidecar" / "target" / "release" / "sidecar.exe",
             # Dev path (debug build)
             base_path / "sidecar" / "target" / "debug" / "sidecar.exe",
-            # Dev tools folder
-            base_path / "tools" / "sidecar.exe",
             # Production/PyInstaller onedir: _internal/injection/tools/
             base_path / "_internal" / "injection" / "tools" / "sidecar.exe",
-            # Production/PyInstaller (legacy path without _internal)
-            base_path / "injection" / "tools" / "sidecar.exe",
-            # Fallback: root folder
-            base_path / "sidecar.exe",
+            # Production/PyInstaller (legacy)
+            base_path / "injection" / "tools" / "sidecar.exe"
         ]
         
         sidecar_path = None

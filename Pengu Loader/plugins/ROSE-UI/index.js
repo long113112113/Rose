@@ -6,9 +6,7 @@
  */
 (function enableLockedSkinPreview() {
   const LOG_PREFIX = "[Rose-UI][skin-preview]";
-  const STYLE_ID = "lpp-ui-unlock-skins-css";
-  const INLINE_ID = `${STYLE_ID}-inline`;
-  const STYLESHEET_NAME = "style.css";
+  const INLINE_ID = "lpp-ui-unlock-skins-css-inline";
   const BORDER_CLASS = "lpp-skin-border";
   const HIDDEN_CLASS = "lpp-skin-hidden";
   const CHROMA_CONTAINER_CLASS = "lpp-chroma-container";
@@ -16,263 +14,27 @@
 
   const DISCORD_INVITE_URL = "https://discord.gg/cDepnwVS8Z";
 
-  let BRIDGE_PORT = 50000; // Default, will be updated from /bridge-port endpoint
-  let BRIDGE_URL = `ws://127.0.0.1:${BRIDGE_PORT}`;
-  const BRIDGE_PORT_STORAGE_KEY = "rose_bridge_port";
-  const DISCOVERY_START_PORT = 50000;
-  const DISCOVERY_END_PORT = 50010;
-
-  let bridgeSocket = null;
-  let bridgeReady = false;
-  let bridgeQueue = [];
+  function waitForBridge() {
+    return new Promise((resolve, reject) => {
+      const timeout = 10000;
+      const interval = 50;
+      let elapsed = 0;
+      const check = () => {
+        if (window.__roseBridge) return resolve(window.__roseBridge);
+        elapsed += interval;
+        if (elapsed >= timeout) return reject(new Error("Bridge not available"));
+        setTimeout(check, interval);
+      };
+      check();
+    });
+  }
 
   let lastBaseSkinSkipRequest = 0;
   const BASE_SKIN_SKIP_REQUEST_TIME_WINDOW_MS = 5000;
 
-  function setupBridgeSocket() {
-    if (bridgeSocket && bridgeSocket.readyState === WebSocket.OPEN) {
-      return;
-    }
-
-    try {
-      bridgeSocket = new WebSocket(BRIDGE_URL);
-
-      bridgeSocket.onopen = () => {
-        log.info("WebSocket bridge connected");
-        bridgeReady = true;
-        flushBridgeQueue();
-      };
-
-      bridgeSocket.onmessage = (event) => {
-        try {
-          const payload = JSON.parse(event.data);
-          handleBridgeMessage(payload);
-        } catch (e) {
-          log.error("Failed to parse bridge message", { error: e.message });
-        }
-      };
-
-      bridgeSocket.onerror = (error) => {
-        log.warn("WebSocket bridge error", {
-          error: error.message || "Unknown error",
-        });
-      };
-
-      bridgeSocket.onclose = () => {
-        log.info("WebSocket bridge closed, reconnecting...");
-        bridgeReady = false;
-        bridgeSocket = null;
-        scheduleBridgeRetry();
-      };
-    } catch (e) {
-      log.error("Failed to setup WebSocket bridge", { error: e.message });
-      scheduleBridgeRetry();
-    }
-  }
-
-  function scheduleBridgeRetry() {
-    setTimeout(() => {
-      if (!bridgeReady) {
-        setupBridgeSocket();
-      }
-    }, 3000);
-  }
-
-  function flushBridgeQueue() {
-    if (
-      bridgeQueue.length > 0 &&
-      bridgeReady &&
-      bridgeSocket &&
-      bridgeSocket.readyState === WebSocket.OPEN
-    ) {
-      bridgeQueue.forEach((message) => {
-        bridgeSocket.send(message);
-      });
-      bridgeQueue = [];
-    }
-  }
-
-  function sendToBridge(payload) {
-    const message = JSON.stringify(payload);
-    if (
-      bridgeReady &&
-      bridgeSocket &&
-      bridgeSocket.readyState === WebSocket.OPEN
-    ) {
-      bridgeSocket.send(message);
-    } else {
-      bridgeQueue.push(message);
-      setupBridgeSocket();
-    }
-  }
-
-  function handleBridgeMessage(payload) {
-    if (payload.type === "skip-base-skin") {
-      handleSkipBaseSkin(payload);
-    }
-  }
-
   function handleSkipBaseSkin(payload) {
     lastBaseSkinSkipRequest = Date.now();
     log.info("received base skin skip request from rose");
-  }
-
-  // Load bridge port with file-based discovery and localStorage caching
-  async function loadBridgePort() {
-    try {
-      // First, check localStorage for cached port
-      const cachedPort = localStorage.getItem(BRIDGE_PORT_STORAGE_KEY);
-      if (cachedPort) {
-        const port = parseInt(cachedPort, 10);
-        if (!isNaN(port) && port > 0) {
-          // Verify cached port is still valid with shorter timeout
-          try {
-            const response = await fetch(`http://127.0.0.1:${port}/bridge-port`, {
-              signal: AbortSignal.timeout(50)
-            });
-            if (response.ok) {
-              const portText = await response.text();
-              const fetchedPort = parseInt(portText.trim(), 10);
-              if (!isNaN(fetchedPort) && fetchedPort > 0) {
-                BRIDGE_PORT = fetchedPort;
-                if (window?.console) {
-                  console.log(`${LOG_PREFIX} Loaded bridge port from cache: ${BRIDGE_PORT}`);
-                }
-                return true;
-              }
-            }
-          } catch (e) {
-            // Cached port invalid, continue to discovery
-            localStorage.removeItem(BRIDGE_PORT_STORAGE_KEY);
-          }
-        }
-      }
-
-      // OPTIMIZATION: Try default port 50000 FIRST before scanning all ports
-      try {
-        const response = await fetch(`http://127.0.0.1:50000/bridge-port`, {
-          signal: AbortSignal.timeout(50)
-        });
-        if (response.ok) {
-          const portText = await response.text();
-          const fetchedPort = parseInt(portText.trim(), 10);
-          if (!isNaN(fetchedPort) && fetchedPort > 0) {
-            BRIDGE_PORT = fetchedPort;
-            localStorage.setItem(BRIDGE_PORT_STORAGE_KEY, String(BRIDGE_PORT));
-            if (window?.console) {
-              console.log(`${LOG_PREFIX} Loaded bridge port: ${BRIDGE_PORT}`);
-            }
-            return true;
-          }
-        }
-      } catch (e) {
-        // Port 50000 not ready, continue to discovery
-      }
-
-      // OPTIMIZATION: Try fallback port 50001 SECOND
-      try {
-        const response = await fetch(`http://127.0.0.1:50001/bridge-port`, {
-          signal: AbortSignal.timeout(50)
-        });
-        if (response.ok) {
-          const portText = await response.text();
-          const fetchedPort = parseInt(portText.trim(), 10);
-          if (!isNaN(fetchedPort) && fetchedPort > 0) {
-            BRIDGE_PORT = fetchedPort;
-            localStorage.setItem(BRIDGE_PORT_STORAGE_KEY, String(BRIDGE_PORT));
-            if (window?.console) {
-              console.log(`${LOG_PREFIX} Loaded bridge port: ${BRIDGE_PORT}`);
-            }
-            return true;
-          }
-        }
-      } catch (e) {
-        // Port 50001 not ready, continue to discovery
-      }
-
-      // OPTIMIZATION: Parallel port discovery instead of sequential
-      const portPromises = [];
-      for (let port = DISCOVERY_START_PORT; port <= DISCOVERY_END_PORT; port++) {
-        portPromises.push(
-          fetch(`http://127.0.0.1:${port}/bridge-port`, {
-            signal: AbortSignal.timeout(100)
-          })
-            .then(response => {
-              if (response.ok) {
-                return response.text().then(portText => {
-                  const fetchedPort = parseInt(portText.trim(), 10);
-                  if (!isNaN(fetchedPort) && fetchedPort > 0) {
-                    return { port: fetchedPort, sourcePort: port };
-                  }
-                  return null;
-                });
-              }
-              return null;
-            })
-            .catch(() => null)
-        );
-      }
-
-      // Wait for first successful response
-      const results = await Promise.allSettled(portPromises);
-      for (const result of results) {
-        if (result.status === 'fulfilled' && result.value) {
-          BRIDGE_PORT = result.value.port;
-          localStorage.setItem(BRIDGE_PORT_STORAGE_KEY, String(BRIDGE_PORT));
-          if (window?.console) {
-            console.log(`${LOG_PREFIX} Loaded bridge port: ${BRIDGE_PORT}`);
-          }
-          return true;
-        }
-      }
-
-      // Fallback: try old /port endpoint (parallel as well)
-      const legacyPromises = [];
-      for (let port = DISCOVERY_START_PORT; port <= DISCOVERY_END_PORT; port++) {
-        legacyPromises.push(
-          fetch(`http://127.0.0.1:${port}/port`, {
-            signal: AbortSignal.timeout(100)
-          })
-            .then(response => {
-              if (response.ok) {
-                return response.text().then(portText => {
-                  const fetchedPort = parseInt(portText.trim(), 10);
-                  if (!isNaN(fetchedPort) && fetchedPort > 0) {
-                    return { port: fetchedPort, sourcePort: port };
-                  }
-                  return null;
-                });
-              }
-              return null;
-            })
-            .catch(() => null)
-        );
-      }
-
-      const legacyResults = await Promise.allSettled(legacyPromises);
-      for (const result of legacyResults) {
-        if (result.status === 'fulfilled' && result.value) {
-          BRIDGE_PORT = result.value.port;
-          localStorage.setItem(BRIDGE_PORT_STORAGE_KEY, String(BRIDGE_PORT));
-          if (window?.console) {
-            console.log(`${LOG_PREFIX} Loaded bridge port (legacy): ${BRIDGE_PORT}`);
-          }
-          return true;
-        }
-      }
-
-      if (window?.console) {
-        console.warn(
-          `${LOG_PREFIX} Failed to load bridge port, using default (50000)`
-        );
-      }
-      return false;
-    } catch (e) {
-      if (window?.console) {
-        console.warn(`${LOG_PREFIX} Error loading bridge port:`, e);
-      }
-      return false;
-    }
   }
 
   // TODO Preferably move bridge communication logic and websocket interception to a separate Pengu plugin like ROSE-CORE,
@@ -423,8 +185,6 @@
       display: none !important;
     }
 
- 
-
     .skin-selection-carousel-container .skin-selection-carousel .skin-selection-item .skin-selection-thumbnail {
       height: 100% !important;
       margin: 0 !important;
@@ -476,6 +236,7 @@
       justify-content: center;
       pointer-events: none;
       z-index: 4;
+      overflow: hidden;
     }
 
     .skin-selection-carousel .skin-selection-item .${CHROMA_CONTAINER_CLASS} .chroma-button {
@@ -505,45 +266,9 @@
       display: none !important;
       pointer-events: none !important;
     }
-    
-    .rose-sync-progress-container {
-      position: absolute;
-      bottom: 80px;
-      left: 50%;
-      transform: translateX(-50%);
-      width: 200px;
-      height: 4px;
-      background: rgba(0, 0, 0, 0.5);
-      border-radius: 2px;
-      overflow: hidden;
-      z-index: 1000;
-      opacity: 0;
-      transition: opacity 0.3s;
-      pointer-events: none;
-    }
-    
-    .rose-sync-progress-bar {
-      width: 0%;
-      height: 100%;
-      background: linear-gradient(90deg, #c8aa6e, #c89b3c);
-      box-shadow: 0 0 8px rgba(200, 155, 60, 0.6);
-      transition: width 0.3s ease-out;
-    }
-    
-    .rose-sync-status-text {
-      position: absolute;
-      bottom: 90px;
-      left: 50%;
-      transform: translateX(-50%);
-      font-size: 11px;
-      color: #cdbe91;
-      text-transform: uppercase;
-      letter-spacing: 1px;
-      text-shadow: 0 0 4px rgba(0, 0, 0, 0.8);
-      z-index: 1000;
-      opacity: 0;
-      transition: opacity 0.3s;
-      pointer-events: none;
+
+    .skin-selection-carousel-container {
+      clip-path: inset(-200px -9999px -9999px -9999px) !important;
     }
   `;
 
@@ -552,26 +277,6 @@
     warn: (msg, extra) => console.warn(`${LOG_PREFIX} ${msg}`, extra ?? ""),
     error: (msg, extra) => console.error(`${LOG_PREFIX} ${msg}`, extra ?? ""),
   };
-
-  function resolveStylesheetHref() {
-    try {
-      const script =
-        document.currentScript ||
-        document.querySelector('script[src$="index.js"]') ||
-        document.querySelector('script[src*="LPP-UI"]');
-
-      if (script?.src) {
-        return new URL(STYLESHEET_NAME, script.src).toString();
-      }
-    } catch (error) {
-      log.warn(
-        "failed to resolve stylesheet URL; falling back to relative path",
-        error
-      );
-    }
-
-    return STYLESHEET_NAME;
-  }
 
   function injectInlineRules() {
     if (document.getElementById(INLINE_ID)) {
@@ -582,37 +287,7 @@
     styleTag.id = INLINE_ID;
     styleTag.textContent = INLINE_RULES;
     document.head.appendChild(styleTag);
-    log.warn("applied inline fallback styling");
-  }
-
-  function removeInlineRules() {
-    const existing = document.getElementById(INLINE_ID);
-    if (existing) {
-      existing.remove();
-    }
-  }
-
-  function attachStylesheet() {
-    if (document.getElementById(STYLE_ID)) {
-      return;
-    }
-
-    const link = document.createElement("link");
-    link.id = STYLE_ID;
-    link.rel = "stylesheet";
-    link.href = resolveStylesheetHref();
-
-    link.addEventListener("load", () => {
-      removeInlineRules();
-      log.info("external stylesheet loaded");
-    });
-
-    link.addEventListener("error", () => {
-      link.remove();
-      injectInlineRules();
-    });
-
-    document.head.appendChild(link);
+    log.info("inline styles applied");
   }
 
   function ensureBorderFrame(skinItem) {
@@ -748,6 +423,8 @@
   }
 
   function scanSkinSelection() {
+    injectInlineRules();
+
     document.querySelectorAll(".skin-selection-item").forEach((skinItem) => {
       ensureChromaContainer(skinItem);
       ensureBorderFrame(skinItem);
@@ -941,7 +618,7 @@
 
     const icon = document.createElement("div");
     icon.className = "menu-item-icon";
-    icon.style.webkitMaskImage = `url(http://127.0.0.1:${BRIDGE_PORT}/asset/golden_rose.png)`;
+    icon.style.webkitMaskImage = `url(http://127.0.0.1:${window.__roseBridge ? window.__roseBridge.port : 50000}/asset/golden_rose.png)`;
 
     iconWrapper.appendChild(glow);
     iconWrapper.appendChild(icon);
@@ -1211,12 +888,14 @@
     }
 
     try {
-      // Load bridge port before initializing
-      await loadBridgePort();
+      // Wait for bridge to be available (provides port)
+      const bridge = await waitForBridge();
 
-      setupBridgeSocket();
+      // Subscribe to skip-base-skin messages from the shared bridge
+      bridge.subscribe("skip-base-skin", handleSkipBaseSkin);
+
       interceptChampSelectWebsocket();
-      attachStylesheet();
+      injectInlineRules();
       scanSkinSelection();
       setupSkinObserver();
       setupNavObserver();

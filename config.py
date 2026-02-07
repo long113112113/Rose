@@ -20,7 +20,7 @@ log = logging.getLogger(__name__)
 # APPLICATION METADATA
 # =============================================================================
 
-APP_VERSION = "1.1.10"                          # Application version
+APP_VERSION = "1.1.12"                          # Application version
 APP_USER_AGENT = f"Rose/{APP_VERSION}"  # User-Agent header for HTTP requests
 
 _CONFIG = configparser.ConfigParser()
@@ -324,6 +324,6 @@ ANALYTICS_TIMEOUT_S = 30  # Request timeout in seconds
 
 
 # Boolean flags
-DEFAULT_VERBOSE = False
+DEFAULT_VERBOSE = True
 DEFAULT_DOWNLOAD_SKINS = True
 DEFAULT_FORCE_UPDATE_SKINS = False

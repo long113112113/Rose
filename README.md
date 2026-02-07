@@ -4,7 +4,7 @@
 
   <img src="./assets/icon.ico" alt="Rose Icon" width="128" height="128">
 
-[![Installer](https://img.shields.io/badge/Installer-Windows-32A832)](https://github.com/Alban1911/Rose/releases/latest) [![Ko-Fi](https://img.shields.io/badge/KoFi-Donate-C03030?logo=ko-fi&logoColor=white)](https://ko-fi.com/roseapp) [![Discord](https://img.shields.io/discord/1465467335946272780?color=32A832&logo=discord&logoColor=white&label=Discord)](https://discord.com/invite/PHVUppft)  [![License](https://img.shields.io/badge/License-Open%20Source-C03030)](LICENSE)
+[![Installer](https://img.shields.io/badge/Installer-Windows-32A832)](https://github.com/Alban1911/Rose/releases/latest) [![Ko-Fi](https://img.shields.io/badge/KoFi-Donate-C03030?logo=ko-fi&logoColor=white)](https://ko-fi.com/roseapp) [![Discord](https://img.shields.io/discord/1465467335946272780?color=32A832&logo=discord&logoColor=white&label=Discord)](https://discord.com/invite/roseapp)  [![License](https://img.shields.io/badge/License-Open%20Source-C03030)](LICENSE)
 ![GitHub all releases](https://img.shields.io/github/downloads/Alban1911/Rose/total?color=32A832)
 
 </div>
@@ -54,7 +54,7 @@ Rose includes a suite of JavaScript plugins that extend the League Client UI:
 2. **Skin Detection**: When you hover over a skin in champion select, `ROSE-SkinMonitor` detects the selection and sends it to the Python backend
 3. **Game Opening Delay**: To make sure the injection has time to occur we suspend League of Legend's game process as long as the overlay is not ran
 4. **Game Injection**: Using CSLOL tools, Rose injects the selected skin when the game starts
-5. **Seamless Experience**: The skin loads as if you owned it, with full chroma support and no gameplay impact (Rose will never provide any competitive advantage to its users)
+5. **Seamless Experience**: The skin loads as if you owned it, with full chroma support and no gameplay impact (**Rose will never provide any competitive advantage to its users**)
 
 ## Features
 
