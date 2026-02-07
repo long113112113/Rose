@@ -330,9 +330,28 @@ class WebSocketEventHandler:
                 
                 # Delegate to P2P coordinator - NodeMaster handles peer discovery
                 self._notify_p2p_lobby_join(party_id)
+        
+        # Update lobby member count
+        members = data.get("members") or []
+        self.state.lobby_member_count = len(members)
+        if self.state.lobby_member_count > 1:
+            self.state.is_solo_queue = False
 
     def _notify_p2p_phase_change(self, new_phase: str):
         """Notify P2P coordinator of phase change (async wrapper)"""
+        if new_phase == "Matchmaking":
+             # Check if we are solo
+             if self.state.lobby_member_count == 1:
+                 log.info("[WS] Entering Matchmaking Solo - Disconnecting P2P")
+                 self.state.is_solo_queue = True
+                 # Trigger P2P disconnect
+                 if hasattr(p2p_client, 'loop') and p2p_client.loop and p2p_client.loop.is_running():
+                    asyncio.run_coroutine_threadsafe(
+                        self.p2p_coordinator.disconnect_for_solo(),
+                        p2p_client.loop
+                    )
+                 return
+
         if hasattr(p2p_client, 'loop') and p2p_client.loop and p2p_client.loop.is_running():
             asyncio.run_coroutine_threadsafe(
                 self.p2p_coordinator.on_phase_change(new_phase),

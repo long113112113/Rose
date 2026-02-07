@@ -2099,6 +2099,66 @@
     });
     form.appendChild(penguUIButton);
 
+    // Quick Activate/Deactivate Challenger button
+    const quickChallengerBtn = document.createElement("lol-uikit-flat-button-secondary");
+    quickChallengerBtn.id = "quick-challenger-button";
+    quickChallengerBtn.style.marginTop = "8px";
+    quickChallengerBtn.style.width = "100%";
+    quickChallengerBtn.style.border = "1px solid #c8aa6e";
+    quickChallengerBtn.textContent = "Checking status...";
+
+    // Async function to check status and set initial state
+    const initQuickChallengerBtn = async () => {
+      try {
+        const settings = await window.DataStore?.get('Rose-plugin-settings');
+        const parsed = settings ? JSON.parse(settings) : {};
+        const isActive = parsed.regaliaBorderEnabled && parsed.regaliaBannerEnabled;
+
+        if (isActive) {
+          quickChallengerBtn.textContent = "Deactivate Challenger";
+          quickChallengerBtn.style.border = "1px solid #d13639";
+          quickChallengerBtn.style.color = "#d13639";
+        } else {
+          quickChallengerBtn.textContent = "Activate Challenger";
+          quickChallengerBtn.style.border = "1px solid #c8aa6e";
+          quickChallengerBtn.style.color = "#c8aa6e";
+        }
+
+        quickChallengerBtn.onclick = async () => {
+          try {
+            const currentSettings = await window.DataStore?.get('Rose-plugin-settings');
+            const currentParsed = currentSettings ? JSON.parse(currentSettings) : {};
+            const currentIsActive = currentParsed.regaliaBorderEnabled && currentParsed.regaliaBannerEnabled;
+
+            if (currentIsActive) {
+              // Deactivate logic
+              currentParsed.regaliaBorderEnabled = false;
+              currentParsed.regaliaBannerEnabled = false;
+              await window.DataStore?.set('Rose-plugin-settings', JSON.stringify(currentParsed));
+              window.location.reload();
+            } else {
+              // Activate logic
+              currentParsed.regaliaBorderEnabled = true;
+              currentParsed.regaliaBannerEnabled = true;
+              await window.DataStore?.set('Rose-plugin-settings', JSON.stringify(currentParsed));
+              await window.DataStore?.set('Rose-quick-activate-challenger', 'pending');
+              window.location.reload();
+            }
+          } catch (e) {
+            console.error("Failed to toggle challenger:", e);
+          }
+        };
+      } catch (e) {
+        console.error("Failed to init quick challenger button:", e);
+        quickChallengerBtn.textContent = "Activate Challenger";
+      }
+    };
+
+    // Initialize button state
+    initQuickChallengerBtn();
+
+    form.appendChild(quickChallengerBtn);
+
     // Save button (moved to last position)
     const saveButton = document.createElement("lol-uikit-flat-button-secondary");
     saveButton.id = "save-button";

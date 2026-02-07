@@ -100,4 +100,8 @@ class SharedState:
     current_party_id: Optional[str] = None  # Current Lobby Party ID for P2P room
     is_host: bool = False  # Track if local player is Lobby Host
     peer_skins: dict = field(default_factory=dict)  # {peer_id: skin_data}
+    
+    # Solo Queue Logic
+    is_solo_queue: bool = False  # True if user is in queue alone
+    lobby_member_count: int = 1  # Number of members in the lobby
 

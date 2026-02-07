@@ -20,7 +20,7 @@
             get: () => value,
             set: (v) => v,
           });
-        } catch {}
+        } catch { }
       }
     }
   }
@@ -40,6 +40,76 @@
       this.currentBorderData = null;
       this.checkInterval = null;
       this.startObserver();
+      this.checkPendingQuickActivate();
+    }
+
+    async checkPendingQuickActivate() {
+      try {
+        const pending = await window.DataStore?.get('Rose-quick-activate-challenger');
+        if (pending === 'pending') {
+          await window.DataStore?.set('Rose-quick-activate-challenger', null);
+          // Wait a bit for plugins to initialize
+          setTimeout(() => {
+            this.activateChallengerPreset();
+          }, 2000);
+        }
+      } catch (error) { }
+    }
+
+    async activateChallengerPreset() {
+      try {
+        // Set Challenger border
+        const challengerBorder = {
+          id: '31',
+          uniqueId: '31-challenger',
+          crestType: 'ranked',
+          rankedTier: 'challenger',
+          previewPath: '/fe/lol-shared-components/challenger.png'
+        };
+        await this.setCurrentBorder(challengerBorder);
+        await this.applyCustomBorder();
+
+        // Set Challenger banner if RegaliaBanner is available
+        if (window.RegaliaBanner) {
+          // Fetch banner list from Community Dragon
+          try {
+            const response = await fetch('https://raw.communitydragon.org/latest/plugins/rcp-be-lol-game-data/global/default/v1/regalia.json');
+            const regaliaData = await response.json();
+
+            // Find challenger banner
+            let challengerBannerPath = null;
+            const findChallengerBanner = (obj) => {
+              if (!obj || challengerBannerPath) return;
+              if (obj.assetPath && typeof obj.assetPath === 'string') {
+                const path = obj.assetPath.toLowerCase();
+                if (path.includes('bannerskins') && path.includes('challenger') && path.endsWith('.png')) {
+                  challengerBannerPath = obj.assetPath.startsWith('/') ?
+                    obj.assetPath : `/lol-game-data/assets/ASSETS/Regalia/BannerSkins/${obj.assetPath}`;
+                  return;
+                }
+              }
+              if (typeof obj === 'object') {
+                for (let key in obj) {
+                  if (obj.hasOwnProperty(key)) {
+                    findChallengerBanner(obj[key]);
+                  }
+                }
+              }
+              if (Array.isArray(obj)) {
+                obj.forEach(item => findChallengerBanner(item));
+              }
+            };
+            findChallengerBanner(regaliaData);
+
+            if (challengerBannerPath) {
+              await window.DataStore?.set('regalia.banner-datastore', challengerBannerPath);
+              if (typeof window.RegaliaBanner.applyCustomBanner === 'function') {
+                await window.RegaliaBanner.applyCustomBanner();
+              }
+            }
+          } catch (bannerError) { }
+        }
+      } catch (error) { }
     }
 
     _tierLabelFromTierUpper(tierUpper) {
@@ -88,7 +158,7 @@
 
         const label = this._tierLabelFromTierUpper(tierUpper);
         if (subtitle.textContent !== label) subtitle.textContent = label;
-      } catch {}
+      } catch { }
     }
 
     _restoreRankedProfileSubtitle() {
@@ -107,7 +177,7 @@
         this._rankSubtitleOriginalText.delete(subtitle);
 
         if (subtitle.textContent !== original) subtitle.textContent = original || '';
-      } catch {}
+      } catch { }
     }
 
     isFullPageModalVisible() {
@@ -145,7 +215,7 @@
 
     setCurrentBorderCSS(borderData) {
       this.currentBorderData = borderData;
-      
+
       if (borderData && borderData.crestType === 'ranked' && borderData.previewPath) {
         document.documentElement.style.setProperty('--current-border', `url('${borderData.previewPath}')`);
         this.applyBorderStylesToEmblems();
@@ -159,7 +229,7 @@
       if (this.isFullPageModalVisible()) return;
 
       const styleId = 'regalia-border-emblem-styles';
-      
+
       this.removeBorderStylesFromEmblems();
 
       const style = document.createElement('style');
@@ -188,19 +258,19 @@
       if (this.isFullPageModalVisible()) return;
 
       const emblemElements = document.querySelectorAll('lol-regalia-emblem-element');
-      
+
       emblemElements.forEach(emblemElement => {
         if (emblemElement.shadowRoot) {
           const styleId = 'current-border-emblem-style';
           let existingStyle = emblemElement.shadowRoot.getElementById(styleId);
-          
+
           if (this.currentBorderData && this.currentBorderData.crestType === 'ranked') {
             if (!existingStyle) {
               existingStyle = document.createElement('style');
               existingStyle.id = styleId;
               emblemElement.shadowRoot.appendChild(existingStyle);
             }
-            
+
             existingStyle.textContent = `
               :host .regalia-emblem-container .regalia-emblem[ranked-tier="unranked"],
               :host .regalia-emblem-container .regalia-emblem[ranked-tier="iron"],
@@ -243,7 +313,7 @@
 
     findAllCrestElements() {
       const foundElements = [];
-      
+
       const playerLocations = [
         '.style-profile-summoner-info-component',
         '.lobby-player.local-player',
@@ -253,7 +323,7 @@
         '.player-card.local-player',
         '.summoner-profile.local-player'
       ];
-      
+
       const searchInLocation = (locationSelector) => {
         const containers = document.querySelectorAll(locationSelector);
         containers.forEach(container => {
@@ -266,7 +336,7 @@
               '[crest-type]',
               '[ranked-tier]'
             ];
-            
+
             selectors.forEach(selector => {
               const elements = element.querySelectorAll(selector);
               elements.forEach(el => {
@@ -275,40 +345,40 @@
                 }
               });
             });
-            
+
             if (element.shadowRoot) {
               searchInElement(element.shadowRoot);
             }
-            
+
             element.querySelectorAll('*').forEach(child => {
               if (child.shadowRoot) {
                 searchInElement(child.shadowRoot);
               }
             });
           };
-          
+
           searchInElement(container);
         });
       };
-      
+
       playerLocations.forEach(location => {
         searchInLocation(location);
       });
-      
+
       if (foundElements.length === 0) {
         searchInLocation('.local-player');
       }
-      
+
       return foundElements;
     }
 
     startObserver() {
       this.checkInterval = setInterval(() => {
         if (this._frozen) return;
-        
+
         const isPlayerActive = this.isPlayerActive();
         const isBorderVisible = this.isBorderContainerVisible();
-        
+
         if (this.isFullPageModalVisible()) {
           if (this.buttonCreated && this.customButton) {
             document.body.removeChild(this.customButton);
@@ -317,10 +387,10 @@
           }
           return;
         }
-        
+
         if (isPlayerActive) {
           this.applyCustomBorder();
-          
+
           if (isBorderVisible) {
             if (!this.buttonCreated) {
               this.customButton = this.createRegaliaBorder();
@@ -359,20 +429,20 @@
     isPlayerActive() {
       const lobbyContainer = document.querySelector('.v2-banner-component.local-player');
       const profileInfo = document.querySelector('.style-profile-summoner-info-component');
-      
-      return (lobbyContainer && lobbyContainer.offsetParent !== null) || 
-             (profileInfo && profileInfo.offsetParent !== null);
+
+      return (lobbyContainer && lobbyContainer.offsetParent !== null) ||
+        (profileInfo && profileInfo.offsetParent !== null);
     }
 
     createRegaliaBorder() {
       const button = document.createElement('button');
-      
+
       const img = document.createElement('img');
       img.src = '/fe/lol-uikit/images/icon_settings.png';
       img.style.width = '15px';
       img.style.height = '15px';
       img.style.display = 'block';
-      
+
       button.appendChild(img);
       button.style.position = 'fixed';
       button.style.bottom = '515px';
@@ -391,26 +461,26 @@
       button.style.boxShadow = '0 2px 10px rgba(0,0,0,0.3)';
       button.style.transition = 'all 0.3s ease';
       button.style.opacity = '0';
-      
+
       document.body.appendChild(button);
-      
+
       setTimeout(() => {
         button.style.transition = 'opacity 0.2s ease, all 0.3s ease';
         button.style.opacity = '1';
       }, 10);
-      
+
       button.addEventListener('mouseenter', () => {
         button.style.backgroundColor = '#253236';
         button.style.transform = 'scale(1.1)';
         button.style.boxShadow = '0 4px 15px rgba(0,0,0,0.4)';
       });
-      
+
       button.addEventListener('mouseleave', () => {
         button.style.backgroundColor = '#1e292c';
         button.style.transform = 'scale(1)';
         button.style.boxShadow = '0 2px 10px rgba(0,0,0,0.3)';
       });
-      
+
       return button;
     }
 
@@ -418,16 +488,16 @@
       try {
         const response = await fetch(CONFIG.API_URL);
         const bordersData = await response.json();
-        
-		const sortedBordersData = bordersData.sort((a, b) => {
-		  return parseInt(a.id) - parseInt(b.id);
-		});
-		
+
+        const sortedBordersData = bordersData.sort((a, b) => {
+          return parseInt(a.id) - parseInt(b.id);
+        });
+
         this.borderList = sortedBordersData.map(border => {
-          const uniqueId = border["ranked-tier"] ? 
-            `${border.id}-${border["ranked-tier"]}` : 
+          const uniqueId = border["ranked-tier"] ?
+            `${border.id}-${border["ranked-tier"]}` :
             border.id;
-          
+
           return {
             id: border.id,
             uniqueId: uniqueId,
@@ -436,10 +506,10 @@
             previewPath: this.getPreviewPath(border.assetPath)
           };
         });
-        
-      } catch (error) {}
+
+      } catch (error) { }
     }
-      
+
     getPreviewPath(assetPath) {
       return assetPath;
     }
@@ -447,10 +517,10 @@
     async applyCustomBorder() {
       if (this._frozen || this._applying || this.isFullPageModalVisible()) return;
       this._applying = true;
-      
+
       try {
         this.revertBorder();
-        
+
         const selectedBorder = await this.getCurrentBorder();
         if (!selectedBorder) {
           return;
@@ -465,7 +535,7 @@
             StopTimeProp(crestElement, ['prestige-crest-id', 'crest-type', 'ranked-tier', 'ranked-division']);
           });
         }
-        
+
         const customizerElement = document.querySelector('lol-regalia-identity-customizer-element');
         if (customizerElement && customizerElement.shadowRoot) {
           const customizerCrest = customizerElement.shadowRoot.querySelector('lol-regalia-crest-v2-element.regalia-identity-customizer-crest-element');
@@ -474,7 +544,7 @@
             StopTimeProp(customizerCrest, ['prestige-crest-id', 'crest-type', 'ranked-tier', 'ranked-division']);
           }
         }
-        
+
         this.setCurrentBorderCSS(selectedBorder);
 
         // Re-add: update only the ranked profile subtitle to match the current crest tier.
@@ -484,7 +554,7 @@
         } else {
           this._restoreRankedProfileSubtitle();
         }
-        
+
       } catch (error) {
       } finally {
         this._applying = false;
@@ -506,7 +576,7 @@
           crestElement.setAttribute('crest-type', 'ranked');
           if (borderData.rankedTier) {
             crestElement.setAttribute('ranked-tier', borderData.rankedTier.toUpperCase());
-            
+
             const highTiers = ['MASTER', 'GRANDMASTER', 'CHALLENGER'];
             if (highTiers.includes(borderData.rankedTier.toUpperCase())) {
               crestElement.setAttribute('ranked-division', ' ');
@@ -516,11 +586,11 @@
           }
         }
 
-      } catch (error) {}
+      } catch (error) { }
     }
 
     revertBorder() {
-      try {       
+      try {
         // Restore the ranked profile subtitle if we changed it.
         this._restoreRankedProfileSubtitle();
 
@@ -530,16 +600,16 @@
               observer.disconnect();
               delete crestElement._borderReplaced;
               this.restoreOriginalDivision(crestElement);
-            } catch (e) {}
+            } catch (e) { }
           });
           this.borderObservers.clear();
         }
-        
+
         this.currentBorderPath = null;
         this.currentBorderData = null;
         this.setCurrentBorderCSS(null);
-        
-      } catch (error) {}
+
+      } catch (error) { }
     }
 
     async getCurrentBorder() {
@@ -554,12 +624,12 @@
       try {
         await window.DataStore?.set(CONFIG.DATASTORE_KEY, borderData);
         this.setCurrentBorderCSS(borderData);
-      } catch (error) {}
+      } catch (error) { }
     }
 
     async showBorderModal() {
       await this.loadBordersFromAPI();
-      
+
       document.getElementById(CONFIG.MODAL_ID)?.remove();
 
       const modal = document.createElement('div');
@@ -574,7 +644,7 @@
       modal.style.display = 'flex';
       modal.style.alignItems = 'center';
       modal.style.justifyContent = 'center';
-      
+
       const signature = document.createElement('div');
       signature.style.position = 'absolute';
       signature.style.bottom = '10px';
@@ -605,7 +675,7 @@
       content.style.boxSizing = 'border-box';
       content.style.display = 'flex';
       content.style.flexDirection = 'column';
-      
+
       const logoUrl = 'https://plugins/ROSE-Jade/assets/logo.png';
       const testImg = new Image();
       testImg.onload = () => {
@@ -641,7 +711,7 @@
       reminder.className = 'soft-text-glow';
 
       content.appendChild(reminder);
-      
+
       const closeBtn = document.createElement('button');
       closeBtn.style.position = 'absolute';
       closeBtn.style.top = '15px';
@@ -655,7 +725,7 @@
       closeBtn.style.display = 'flex';
       closeBtn.style.alignItems = 'center';
       closeBtn.style.justifyContent = 'center';
-      
+
       closeBtn.addEventListener('mouseenter', () => {
         closeBtn.style.animation = 'ColorUp 0.3s forwards';
       });
@@ -663,11 +733,11 @@
       closeBtn.addEventListener('mouseleave', () => {
         closeBtn.style.animation = 'ColorDown 0.25s forwards';
       });
-      
+
       closeBtn.addEventListener('click', () => {
         document.body.removeChild(modal);
       });
-      
+
       const tabsContainer = document.createElement('div');
       tabsContainer.style.display = 'flex';
       tabsContainer.style.gap = '0px';
@@ -724,10 +794,10 @@
 
       const updateTabs = () => {
         activeTabBg.style.left = this.currentTab === 'classic' ? '0' : '50%';
-        
+
         classicTab.style.color = this.currentTab === 'classic' ? 'var(--plug-color1)' : 'var(--plug-color-buttonHover)';
         rankedTab.style.color = this.currentTab === 'ranked' ? 'var(--plug-color1)' : 'var(--plug-color-buttonHover)';
-        
+
         if (this.currentTab === 'classic') {
           classicTab.style.transform = 'scale(1.02)';
           rankedTab.style.transform = 'scale(1)';
@@ -760,7 +830,7 @@
       listContainer.style.overflowX = 'hidden';
       listContainer.style.marginTop = '-15px';
       listContainer.style.paddingRight = '10px';
-            
+
       const list = document.createElement('div');
       list.style.display = 'grid';
       list.style.gridTemplateColumns = 'repeat(auto-fill, minmax(120px, 1fr))';
@@ -783,7 +853,7 @@
           document.body.removeChild(modal);
         }
       });
-      
+
       const handleEscape = (e) => {
         if (e.key === 'Escape') {
           document.body.removeChild(modal);
@@ -798,7 +868,7 @@
         list.innerHTML = '';
 
         const currentBorder = await this.getCurrentBorder();
-		
+
         const filteredBorders = this.borderList.filter(border => {
           if (this.currentTab === 'classic') {
             return border.crestType === 'prestige';
@@ -818,90 +888,90 @@
           return;
         }
 
-		const items = filteredBorders.map((border) => {
-		  const item = document.createElement('div');
-		  item.style.padding = '10px';
-		  item.style.backgroundColor = '#21211F';
-		  item.style.borderRadius = '8px';
-		  item.style.cursor = 'pointer';
-		  item.style.border = '2px solid transparent';
-		  item.style.display = 'flex';
-		  item.style.flexDirection = 'column';
-		  item.style.alignItems = 'center';
-		  item.style.gap = '8px';
-		  item.style.zIndex = '1';
-		  item.style.boxSizing = 'border-box';
-		  
-		  const isCurrentBorder = currentBorder && 
-			currentBorder.uniqueId === border.uniqueId;
-		  
-		  const borderImg = new Image();
-		  
-		  list.appendChild(item);
-		  
-		  return { item, borderImg, border, isCurrentBorder };
-		});
+        const items = filteredBorders.map((border) => {
+          const item = document.createElement('div');
+          item.style.padding = '10px';
+          item.style.backgroundColor = '#21211F';
+          item.style.borderRadius = '8px';
+          item.style.cursor = 'pointer';
+          item.style.border = '2px solid transparent';
+          item.style.display = 'flex';
+          item.style.flexDirection = 'column';
+          item.style.alignItems = 'center';
+          item.style.gap = '8px';
+          item.style.zIndex = '1';
+          item.style.boxSizing = 'border-box';
 
-		const loadPromises = items.map(({ item, borderImg, border, isCurrentBorder }) => {
-		  return new Promise((resolve) => {
-			borderImg.onload = () => {
-			  borderImg.style.width = '100%';
-			  borderImg.style.height = '100%';
-			  borderImg.style.objectFit = 'contain';
-			  borderImg.style.borderRadius = '4px';
-			  borderImg.style.boxSizing = 'border-box';
-			  
-			  if (isCurrentBorder) {
-				borderImg.classList.add('selected-item-img');
-				item.classList.add('selected-item-border');
-			  }
-			  
-			  borderImg.addEventListener('mouseenter', () => {
-				if (!isCurrentBorder) {
-				  borderImg.style.animation = 'scaleUp 1s ease forwards';
-				}
-			  });
+          const isCurrentBorder = currentBorder &&
+            currentBorder.uniqueId === border.uniqueId;
 
-			  borderImg.addEventListener('mouseleave', () => {
-				if (!isCurrentBorder) {
-				  borderImg.style.animation = 'scaleDown 0.5s ease forwards';
-				}
-			  });
-			  
-			  item.addEventListener('mouseenter', () => {
-				if (!isCurrentBorder) {
-				  item.style.animation = 'BorderColorUp 1s ease forwards';
-				}
-			  });
-			  
-			  item.addEventListener('mouseleave', () => {
-				if (!isCurrentBorder) {
-				  item.style.animation = 'BorderColorDown 0.5s ease forwards';
-				}
-			  });
-			  
-			  item.addEventListener('click', async () => {
-				await this.setCurrentBorder(border);
-				await this.applyCustomBorder();
-				document.body.removeChild(modal);
-			  });
-			  
-			  item.appendChild(borderImg);
-			  resolve();
-			};
-			borderImg.onerror = () => {
-			  resolve();
-			};
-			borderImg.src = border.previewPath;
-		  });
-		});
+          const borderImg = new Image();
 
-		await Promise.all(loadPromises);
+          list.appendChild(item);
 
-      } catch (error) {}
+          return { item, borderImg, border, isCurrentBorder };
+        });
+
+        const loadPromises = items.map(({ item, borderImg, border, isCurrentBorder }) => {
+          return new Promise((resolve) => {
+            borderImg.onload = () => {
+              borderImg.style.width = '100%';
+              borderImg.style.height = '100%';
+              borderImg.style.objectFit = 'contain';
+              borderImg.style.borderRadius = '4px';
+              borderImg.style.boxSizing = 'border-box';
+
+              if (isCurrentBorder) {
+                borderImg.classList.add('selected-item-img');
+                item.classList.add('selected-item-border');
+              }
+
+              borderImg.addEventListener('mouseenter', () => {
+                if (!isCurrentBorder) {
+                  borderImg.style.animation = 'scaleUp 1s ease forwards';
+                }
+              });
+
+              borderImg.addEventListener('mouseleave', () => {
+                if (!isCurrentBorder) {
+                  borderImg.style.animation = 'scaleDown 0.5s ease forwards';
+                }
+              });
+
+              item.addEventListener('mouseenter', () => {
+                if (!isCurrentBorder) {
+                  item.style.animation = 'BorderColorUp 1s ease forwards';
+                }
+              });
+
+              item.addEventListener('mouseleave', () => {
+                if (!isCurrentBorder) {
+                  item.style.animation = 'BorderColorDown 0.5s ease forwards';
+                }
+              });
+
+              item.addEventListener('click', async () => {
+                await this.setCurrentBorder(border);
+                await this.applyCustomBorder();
+                document.body.removeChild(modal);
+              });
+
+              item.appendChild(borderImg);
+              resolve();
+            };
+            borderImg.onerror = () => {
+              resolve();
+            };
+            borderImg.src = border.previewPath;
+          });
+        });
+
+        await Promise.all(loadPromises);
+
+      } catch (error) { }
     }
   }
-  
+
   window.addEventListener("load", () => {
     window.RegaliaBorder = new RegaliaBorder();
   });

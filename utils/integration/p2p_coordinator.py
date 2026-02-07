@@ -48,7 +48,17 @@ class P2PCoordinator:
 
     def is_active(self) -> bool:
         """Check if P2P coordinator should be active based on phase"""
+        if self.state.is_solo_queue:
+            return False
         return self.state.phase in self.ACTIVE_PHASES
+
+    def disconnect_for_solo(self):
+        """Disconnect P2P when entering solo queue"""
+        if self._is_connected:
+            log.info("[P2P] Entering Solo Queue - Disconnecting to save resources")
+            self.p2p_client.leave_room_sync()
+            self._is_connected = False
+            self._is_active = False
 
     async def on_phase_change(self, new_phase: str):
         """Handle phase changes - disconnect when entering game, reconnect when back to lobby
@@ -57,7 +67,12 @@ class P2PCoordinator:
             new_phase: The new gameflow phase
         """
         was_active = self._is_active
-        self._is_active = new_phase in self.ACTIVE_PHASES
+        
+        # Check solo queue status
+        if self.state.is_solo_queue:
+            self._is_active = False
+        else:
+            self._is_active = new_phase in self.ACTIVE_PHASES
 
         # Disconnect when entering game phases to reduce load
         if new_phase in self.DISCONNECT_PHASES and self._is_connected:

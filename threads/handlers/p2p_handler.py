@@ -125,6 +125,10 @@ class P2PHandler:
         if is_custom or self.state.selected_custom_mod:
             return
 
+        # Block broadcast if in solo queue
+        if self.state.is_solo_queue:
+            return
+
         # Debounce: 0.5s
         if hasattr(self, "_debounce_timer") and self._debounce_timer:
             self._debounce_timer.cancel()
