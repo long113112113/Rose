@@ -19,6 +19,9 @@ pub enum ClientMessage {
         is_custom: bool,
     },
     LeaveRoom,
+    ReportPeerLeft {
+        node_id: String,
+    },
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]

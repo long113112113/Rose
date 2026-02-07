@@ -26,6 +26,7 @@ pub enum NMClientMessage {
     Register { ticket: String, node_id: String },
     Leave,
     Ping,
+    ReportPeerLeft { node_id: String },
 }
 
 /// NodeMaster -> Client messages
@@ -206,8 +207,25 @@ impl NodeMasterClient {
         event_tx: &mpsc::UnboundedSender<NodeMasterEvent>,
         registration: &Arc<Mutex<RegistrationInfo>>,
     ) -> DisconnectReason {
+        // Ping timer
+        let mut ping_interval = tokio::time::interval(Duration::from_secs(30));
+        ping_interval.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
+
         loop {
             tokio::select! {
+                // Send periodic pings
+                _ = ping_interval.tick() => {
+                    let ping_msg = NMClientMessage::Ping;
+                    if let Ok(json) = serde_json::to_string(&ping_msg) {
+                         if ws_sender
+                            .send(tokio_tungstenite::tungstenite::Message::Text(json.into()))
+                            .await
+                            .is_err()
+                        {
+                            return DisconnectReason::Error("Failed to send Ping".to_string());
+                        }
+                    }
+                }
                 // Handle outgoing commands
                 Some(cmd) = cmd_rx.recv() => {
                     // Save registration info for auto-reconnect
@@ -287,6 +305,11 @@ impl NodeMasterClient {
     /// Register to a ticket room
     pub fn register(&self, ticket: String, node_id: String) {
         let _ = self.tx.send(NMClientMessage::Register { ticket, node_id });
+    }
+
+    /// Report a peer has left (Host only)
+    pub fn report_peer_left(&self, node_id: String) {
+        let _ = self.tx.send(NMClientMessage::ReportPeerLeft { node_id });
     }
 
     /// Leave current room

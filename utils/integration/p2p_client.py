@@ -124,8 +124,8 @@ class P2PClient:
         """Maintain WebSocket connection."""
         while self._running:
             try:
-                # Disable ping from client side, let server handle it or implied by traffic
-                async with websockets.connect(self.URI, ping_interval=None) as websocket:
+                # Enable ping every 30s to keep connection alive and detect sidecar crash
+                async with websockets.connect(self.URI, ping_interval=30) as websocket:
                     self._websocket = websocket
                     self._connected = True
                     log.info("Connected to P2P Sidecar")
@@ -270,6 +270,23 @@ class P2PClient:
             asyncio.run_coroutine_threadsafe(self.leave_room(), self.loop)
         else:
             log.warning("Cannot leave_room_sync: P2P loop not running")
+
+    async def report_peer_left(self, node_id: str):
+        """Report a peer has left (Host only).
+        
+        Args:
+            node_id: The node ID of the peer that left
+        """
+        payload = {"node_id": node_id}
+        await self.send_action("ReportPeerLeft", payload)
+        log.info(f"[P2P] Reported peer left: {node_id}")
+
+    def report_peer_left_sync(self, node_id: str):
+        """Thread-safe synchronous wrapper for report_peer_left"""
+        if hasattr(self, 'loop') and self.loop and self.loop.is_running():
+            asyncio.run_coroutine_threadsafe(self.report_peer_left(node_id), self.loop)
+        else:
+            log.warning("Cannot report_peer_left_sync: P2P loop not running")
 
     def on(self, event: str, callback: Callable):
         """Register a callback for a specific event type."""

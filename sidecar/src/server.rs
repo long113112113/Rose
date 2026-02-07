@@ -494,6 +494,7 @@ pub async fn handle_connection(stream: TcpStream, gossip: Gossip, my_node_id: St
                                                 let _gossip_clone = gossip.clone();
                                                 let _tx_clone2 = to_client_tx.clone();
                                                 let _topic_id_clone = topic_id;
+                                                let tx_clone = to_client_tx.clone();
                                                 let nm_handle = tokio::spawn(async move {
                                                     while let Some(event) = event_rx.recv().await {
                                                         match event {
@@ -509,7 +510,12 @@ pub async fn handle_connection(stream: TcpStream, gossip: Gossip, my_node_id: St
                                                                     // Note: iroh-gossip handles this via ALPN discovery
                                                                 }
                                                             }
-                                                            NodeMasterEvent::PeerLeft(_node_id) => {
+                                                            NodeMasterEvent::PeerLeft(node_id) => {
+                                                                let _ = tx_clone
+                                                                    .send(ServerMessage::PeerLeft {
+                                                                        peer_id: node_id,
+                                                                    })
+                                                                    .await;
                                                             }
                                                             NodeMasterEvent::Disconnected => {
                                                                 break;
@@ -588,6 +594,11 @@ pub async fn handle_connection(stream: TcpStream, gossip: Gossip, my_node_id: St
                                                 .to_string(),
                                         })
                                         .await;
+                                }
+                            }
+                            ClientMessage::ReportPeerLeft { node_id } => {
+                                if let Some(ref client) = _nodemaster_client {
+                                    client.report_peer_left(node_id);
                                 }
                             }
                             ClientMessage::LeaveRoom => {

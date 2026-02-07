@@ -1,6 +1,7 @@
 use std::net::SocketAddr;
 
 use futures::{SinkExt, StreamExt};
+use std::time::Duration;
 use tokio::net::TcpStream;
 use tokio::sync::mpsc;
 use tokio_tungstenite::tungstenite::Message;
@@ -50,8 +51,24 @@ pub async fn handle_connection(
         }
     });
 
-    // Process incoming messages
-    while let Some(result) = ws_receiver.next().await {
+    // Process incoming messages with timeout
+    loop {
+        // 45 seconds timeout for heartbeat
+        let msg_future = ws_receiver.next();
+        let result = match tokio::time::timeout(Duration::from_secs(45), msg_future).await {
+            Ok(res) => res,
+            Err(_) => {
+                // Timeout exceeded
+                // warn!("Connection timed out for {}", addr); // Optional logging
+                break;
+            }
+        };
+
+        // Handle the message result (same as before, just unwrapped from timeout)
+        let result = match result {
+            Some(r) => r,
+            None => break, // Stream closed
+        };
         let msg = match result {
             Ok(Message::Text(text)) => text,
             Ok(Message::Ping(_)) => {
@@ -80,6 +97,14 @@ pub async fn handle_connection(
         };
 
         match client_msg {
+            ClientMessage::ReportPeerLeft { node_id } => {
+                // Host reports a peer left - remove them from the room
+                if current_node_id.is_some() {
+                    rooms.leave(&node_id).await;
+                } else {
+                    warn!("Received ReportPeerLeft from unregistered client {}", addr);
+                }
+            }
             ClientMessage::Register { ticket, node_id } => {
                 // If already registered with different node_id, leave first
                 if let Some(ref old_id) = current_node_id {

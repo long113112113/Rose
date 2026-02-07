@@ -97,6 +97,12 @@ class P2PCoordinator:
             log.debug(f"[P2P] Already connected to party {party_id[:8]}..., skipping")
             return
 
+        # If switching parties, leave the old room first
+        if self._is_connected and self._current_party_id and self._current_party_id != party_id:
+            log.info(f"[P2P] Switching party, leaving old room first")
+            self.p2p_client.leave_room_sync()
+            self._is_connected = False
+
         # Create ticket from party ID hash
         ticket = hashlib.sha256(party_id.encode()).hexdigest()
 

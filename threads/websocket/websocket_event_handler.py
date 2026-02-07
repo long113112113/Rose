@@ -315,12 +315,21 @@ class WebSocketEventHandler:
         party_id = data.get("partyId")
         
         # Check for new party join
-        if party_id and party_id != self.state.current_party_id:
-            log.info(f"[WS] Lobby PartyID detected: {party_id[:8]}...")
-            self.state.current_party_id = party_id
+        if party_id:
+            # Update Host status
+            local_member = data.get("localMember") or {}
+            is_leader = local_member.get("isLeader", False)
             
-            # Delegate to P2P coordinator - NodeMaster handles peer discovery
-            self._notify_p2p_lobby_join(party_id)
+            if is_leader != self.state.is_host:
+                self.state.is_host = is_leader
+                log.info(f"[WS] Host status changed: {is_leader}")
+
+            if party_id != self.state.current_party_id:
+                log.info(f"[WS] Lobby PartyID detected: {party_id[:8]}...")
+                self.state.current_party_id = party_id
+                
+                # Delegate to P2P coordinator - NodeMaster handles peer discovery
+                self._notify_p2p_lobby_join(party_id)
 
     def _notify_p2p_phase_change(self, new_phase: str):
         """Notify P2P coordinator of phase change (async wrapper)"""

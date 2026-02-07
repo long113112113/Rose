@@ -53,6 +53,13 @@ class P2PHandler:
                  self.state.active_peers.remove(peer_id)
             if peer_id in self.state.peer_skins:
                  del self.state.peer_skins[peer_id]
+            
+            # If we are Host, report this disconnection to NodeMaster
+            # This handles ungraceful disconnects (timeouts/crashes) detected by NeighborDown
+            if self.state.is_host:
+                log.info(f"[P2P] Host reporting peer left: {peer_id}")
+                p2p_client.report_peer_left_sync(peer_id)
+                
         self._broadcast_connection_state()
 
     def _broadcast_connection_state(self):

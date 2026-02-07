@@ -6,10 +6,13 @@ LCU connection monitoring thread for language detection
 
 import time
 import threading
+import asyncio
 from typing import Callable, Optional
 from lcu import LCU, compute_locked
 from state import SharedState
 from utils.core.logging import get_logger, log_status
+from utils.integration.p2p_client import p2p_client
+from utils.integration.p2p_coordinator import P2PCoordinator
 from config import LCU_MONITOR_INTERVAL
 
 log = get_logger()
@@ -35,6 +38,9 @@ class LCUMonitorThread(threading.Thread):
         self.ws_connected = False
         self.language_initialized = False  # Track if language was successfully detected after reconnection
         self.last_language_check = 0.0  # Timestamp of last language check
+        
+        # P2P coordinator for initial lobby detection
+        self.p2p_coordinator = P2PCoordinator(p2p_client, state)
 
     def run(self):
         """Main monitoring loop"""
@@ -78,6 +84,9 @@ class LCUMonitorThread(threading.Thread):
                     
                     # Check initial champion select state (for issue #29: app starting after lock)
                     self._check_initial_champion_state()
+                    
+                    # Check initial lobby state for P2P (app starting while in lobby)
+                    self._check_initial_lobby_state()
                 
                 # Language not yet initialized - retry detection
                 elif current_lcu_ok and current_ws_connected and self.ws_connected and not self.language_initialized:
@@ -249,3 +258,43 @@ class LCUMonitorThread(threading.Thread):
         
         # Use the is_connected flag from WebSocket thread
         return getattr(self.ws_thread, 'is_connected', False)
+    
+    def _check_initial_lobby_state(self):
+        """Check if we're already in a lobby for P2P connection
+        
+        This handles the case where Rose is launched while the user is already
+        in a party/lobby. Without this, P2P won't connect until a lobby event fires.
+        """
+        try:
+            # Query current lobby state from LCU
+            lobby = self.lcu.get("/lol-lobby/v2/lobby")
+            if not lobby or not isinstance(lobby, dict):
+                log.debug("[init-state] No active lobby found")
+                return
+            
+            party_id = lobby.get("partyId")
+            if not party_id:
+                log.debug("[init-state] Lobby found but no partyId")
+                return
+            
+            # Update state and trigger P2P join
+            if party_id != self.state.current_party_id:
+                log.info(f"[init-state] Found existing lobby, joining P2P: {party_id[:8]}...")
+                self.state.current_party_id = party_id
+                
+                # Update Host status
+                local_member = lobby.get("localMember") or {}
+                self.state.is_host = local_member.get("isLeader", False)
+                log.info(f"[init-state] Initial Host status: {self.state.is_host}")
+                
+                # Trigger P2P join via coordinator
+                if hasattr(p2p_client, 'loop') and p2p_client.loop and p2p_client.loop.is_running():
+                    asyncio.run_coroutine_threadsafe(
+                        self.p2p_coordinator.on_lobby_join(party_id),
+                        p2p_client.loop
+                    )
+                else:
+                    log.debug("[init-state] P2P client loop not ready, skipping initial lobby join")
+        except Exception as e:
+            log.debug(f"Error checking initial lobby state: {e}")
+
