@@ -6,7 +6,7 @@
  */
 (function initSettingsPanel() {
   const LOG_PREFIX = "[Rose-SettingsPanel]";
-  const DISCORD_INVITE_URL = "https://discord.gg/PHVUppft";
+  const DISCORD_INVITE_URL = "https://discord.gg/roseapp";
   const KOFI_URL = "https://ko-fi.com/roseapp";
   const GITHUB_URL = "https://github.com/Alban1911/Rose";
 
@@ -1080,9 +1080,9 @@
     const snapshot =
       currentSettings && typeof currentSettings === "object"
         ? {
-            threshold: currentSettings.threshold,
-            monitorAutoResumeTimeout: currentSettings.monitorAutoResumeTimeout,
-          }
+          threshold: currentSettings.threshold,
+          monitorAutoResumeTimeout: currentSettings.monitorAutoResumeTimeout,
+        }
         : null;
     diagnosticsState = {
       errors: Array.isArray(payload.errors) ? payload.errors : [],
@@ -1145,7 +1145,7 @@
     const tryApply = () => {
       try {
         applyErrorBadges();
-      } catch (e) {}
+      } catch (e) { }
     };
 
     try {
@@ -1285,7 +1285,7 @@
             if (bridge) bridge.send({ type: "diagnostics-clear-category", categories: cats });
           }
         }
-      } catch (e) {}
+      } catch (e) { }
       _pendingSave = null;
 
       // Refresh settings + diagnostics + badges after save
@@ -2160,9 +2160,9 @@
         parseInt(timeoutSlider.max || "180", 10),
         (value) => {
           return parseInt(value);
-      }, (value) => {
-        return `${value} s`;
-      });
+        }, (value) => {
+          return `${value} s`;
+        });
     }, 100);
 
     settingsPanel = panel;
@@ -3078,7 +3078,7 @@
         centerX = r.left + r.width / 2;
         centerY = r.top + r.height / 2;
       }
-    } catch (e) {}
+    } catch (e) { }
 
     panel.style.left = `${centerX}px`;
     panel.style.top = `${centerY}px`;
@@ -3169,9 +3169,9 @@
             panel.style.left = `${curLeft + dx}px`;
             panel.style.top = `${curTop + dy}px`;
           }
-        } catch (e) {}
+        } catch (e) { }
       });
-    } catch (e) {}
+    } catch (e) { }
 
     requestDiagnostics();
     renderDiagnosticsDialog();
@@ -3287,11 +3287,10 @@
                 ${tsHtml}
                 <span style="font-weight:700;">${title}</span>
               </div>
-              ${
-                detailsHtml
-                  ? `<ul style="margin:0; padding-left:18px;">${detailsHtml}</ul>`
-                  : `<div style="opacity:0.8;">${escapeHtml(String(e?.text || "").trim() || "No additional details.")}</div>`
-              }
+              ${detailsHtml
+              ? `<ul style="margin:0; padding-left:18px;">${detailsHtml}</ul>`
+              : `<div style="opacity:0.8;">${escapeHtml(String(e?.text || "").trim() || "No additional details.")}</div>`
+            }
             </div>
           `.trim();
         })
@@ -3330,19 +3329,19 @@
         clearTimeout(_flyoutRepositionTimer);
         _flyoutRepositionTimer = null;
       }
-    } catch (e) {}
+    } catch (e) { }
 
     // If troubleshooting dialog is open, close it too (it is a separate fixed overlay).
     try {
       const diag = document.getElementById("rose-diagnostics-dialog");
       if (diag) diag.remove();
       diagnosticsDialog = null;
-    } catch (e) {}
+    } catch (e) { }
 
     const cleanup = () => {
       try {
         if (settingsPanel) settingsPanel.remove();
-      } catch (e) {}
+      } catch (e) { }
       settingsPanel = null;
     };
 
@@ -3358,7 +3357,7 @@
       // Disable interactions immediately while closing.
       try {
         flyout.style.pointerEvents = "none";
-      } catch (e) {}
+      } catch (e) { }
 
       // Smooth close (avoid scale/pop + avoid one-frame re-appearance).
       try {
@@ -3372,7 +3371,7 @@
           try {
             flyout.style.opacity = "0";
             flyout.style.transform = `${baseTransform} translateY(-6px)`;
-          } catch (e) {}
+          } catch (e) { }
         });
 
         // Cleanup after the transition.
@@ -3512,7 +3511,7 @@
               if (!bridge || !bridge.ready) return;
               if (typeof document !== "undefined" && document.hidden) return;
               requestDiagnostics();
-            } catch (e) {}
+            } catch (e) { }
           }, 15000);
         }
       });
