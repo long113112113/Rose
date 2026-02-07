@@ -15,16 +15,17 @@
 
 Rose is an open-source automatic skin changer for League of Legends that enables seamless access to all skins in the game. The application runs silently in the system tray and automatically detects skin selections during champion select, injecting the chosen skin when the game loads.
 
-**Rose is built on two core technologies:**
+**Rose is built on three core technologies:**
 
 - **🎮 [Pengu Loader](https://github.com/FlorentTariolle/ROSE-Pengu)**: Plugin system that injects JavaScript plugins into the League Client, enabling enhanced UI interactions and quick skin detection
 - **🔧 [CSLOL](https://github.com/LeagueToolkit/cslol-manager)**: Safe skin injection framework that handles the actual skin injection process, fully compatible with Riot Vanguard
+- **🌐 P2P Network (Rust Sidecar + NodeMaster)**: Enables skin sharing between players in the same lobby using `iroh-gossip` protocol
 
 These technologies work together to provide a seamless and effortless automatic skin-changing experience without any manual intervention.
 
 ## Architecture
 
-Rose consists of two main components:
+Rose consists of three main components:
 
 ### Python Backend
 
@@ -33,7 +34,14 @@ Rose consists of two main components:
 - **WebSocket Bridge**: Operates a WebSocket server for real-time communication with frontend plugins
 - **Skin Management**: Downloads and manages skins from the [LeagueSkins repository](https://github.com/Alban1911/LeagueSkins)
 - **Game Monitoring**: Tracks game state, champion select phases, and loadout countdowns
+- **P2P Coordination**: Manages peer discovery and skin synchronization with lobby members
 - **Analytics**: Sends periodic pings to track unique users (configurable, runs in background thread)
+
+### Rust Sidecar & NodeMaster (P2P)
+
+- **Sidecar**: Local WebSocket server using `iroh-gossip` for decentralized P2P communication
+- **NodeMaster**: Central server for peer discovery and room coordination
+- **Gossip Protocol**: Efficient skin data synchronization between lobby members
 
 ### Pengu Loader Plugins
 
@@ -61,6 +69,7 @@ Rose includes a suite of JavaScript plugins that extend the League Client UI:
 - **Automatic Skin Detection**: Detects skin selections through hover events in champion select
 - **All Skins Accessible**: Access to every skin for every champion
 - **Chroma Support**: Select any chroma variant through the enhanced UI
+- **P2P Skin Sharing**: Share your selected skins with other Rose users in the same lobby - everyone sees each other's skins!
 - **Random Skin Mode**: Automatically select random skins
 - **Historic Mode**: Access last used skin on every champion
 - **Custom Mod Insights**: ROSE-CustomWheel surfaces installed mods relevant to the skin you're hovering over, along with timestamps and quick folder access
@@ -246,6 +255,22 @@ Rose/
 │   └── core/
 │       ├── shared_state.py
 │       └── app_status.py
+│
+├── sidecar/               # P2P Sidecar (Rust)
+│   ├── Cargo.toml
+│   └── src/
+│       ├── main.rs           # WebSocket server with iroh-gossip
+│       ├── server.rs         # Connection handling
+│       ├── protocol.rs       # Message protocol
+│       └── nodemaster_client.rs  # NodeMaster communication
+│
+├── nodemaster/            # NodeMaster Server (Rust)
+│   ├── Cargo.toml
+│   └── src/
+│       ├── main.rs           # TCP server for peer discovery
+│       ├── room.rs           # Room management
+│       ├── server.rs         # Client handling
+│       └── protocol.rs       # Message protocol
 │
 ├── launcher/              # Application launcher and updater
 │   ├── core/
