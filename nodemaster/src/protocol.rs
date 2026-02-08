@@ -10,6 +10,8 @@ pub enum ClientMessage {
     Leave,
     /// Keep-alive ping
     Ping,
+    /// Report a peer has left (Host only)
+    ReportPeerLeft { node_id: String },
 }
 
 /// Server -> Client messages

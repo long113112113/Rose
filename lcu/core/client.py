@@ -210,3 +210,41 @@ class LCU:
         messages = self._party_chat.get_chat_messages(conv_id)
         host_id = self._party_chat.get_host_summoner_id() if host_only else None
         return self._party_chat.parse_rose_messages(messages, host_id)
+
+    def spoof_rank(self, queue_type="RANKED_SOLO_5x5", tier="CHALLENGER", division="I"):
+        """Delegate spoof_rank to properties handler"""
+        return self._properties.spoof_rank(queue_type, tier, division)
+
+    def reset_rank(self):
+        """Reset rank to actual values from LCU"""
+        try:
+            # 1. Get current summoner
+            summoner = self.current_summoner
+            if not summoner:
+                return False
+            
+            summoner_id = summoner.get("summonerId")
+            if not summoner_id:
+                return False
+            
+            # 2. Get ranked stats
+            stats = self.get(f"/lol-ranked/v1/ranked-stats/{summoner_id}")
+            if not stats:
+                return False
+                
+            # 3. Find highest rank or solo queue rank
+            queue_type = "RANKED_SOLO_5x5"
+            tier = "UNRANKED"
+            division = "IV"
+            
+            queues = stats.get("queues", [])
+            for q in queues:
+                if q.get("queueType") == "RANKED_SOLO_5x5":
+                    tier = q.get("tier", "UNRANKED")
+                    division = q.get("division", "IV")
+                    break
+            
+            # 4. Apply actual rank
+            return self.spoof_rank(queue_type, tier, division)
+        except Exception:
+            return False
