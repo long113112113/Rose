@@ -21,8 +21,12 @@ from ..game.game_detector import GameDetector
 from ..tools.tools_manager import ToolsManager
 from ..mods.zip_resolver import ZipResolver
 from ..mods.mod_manager import ModManager
+from ..tools.workspace_manager import WorkspaceManager
 from ..overlay.overlay_manager import OverlayManager
 from ..overlay.process_manager import ProcessManager
+
+# HARDCODED FLAG FOR WORKSPACE EXTRACTION FLOW
+ENABLE_WORKSPACE_EXTRACTION = False
 
 log = get_logger()
 
@@ -100,6 +104,9 @@ class SkinInjector:
         # Pass process_manager to overlay_manager so they share the process reference
         self.overlay_manager = OverlayManager(self.tools_dir, self.mods_dir, self.game_dir, self.process_manager)
         
+        # Initialize workspace manager
+        self.workspace_manager = WorkspaceManager()
+
         # Store last injection timing data
         self.last_injection_timing = None
         
@@ -200,6 +207,56 @@ class SkinInjector:
         if not mod_names:
             log.error("[INJECT] No skin ZIPs could be resolved for multi-injection")
             return False
+            
+        # --- NEW FLOW: Workspace Extraction ---
+        if ENABLE_WORKSPACE_EXTRACTION:
+            log.info("[INJECT] Workspace Extraction Enabled - Intercepting Injection Flow")
+            
+            # 1. Create overlay WAD (wad.client) without running it
+            # Force ignore conflict to ensure WAD is generated even if mods overlap
+            res = self._mk_overlay_only(mod_names, timeout)
+            
+            if res != 0:
+                log.error("[INJECT] Failed to generate WAD for extraction")
+                return False
+                
+            # 2. Identify Champion and Skin for workspace organization
+            # We use the FIRST skin in the list as the primary identifier for the workspace
+            primary_skin = skins_list[0]
+            champ_name = primary_skin.get("champion_name", "Unknown")
+            # If champion name is missing, try to infer or fallback
+            if not champ_name:
+                 champ_name = "Unknown_Champion"
+            
+            skin_name = primary_skin.get("skin_name", "Unknown_Skin")
+            # skin_name often has spaces, cleaner to use underscores or ID if available
+            # But the requirement was "skin name ... from user logic". 
+            # Let's keep it simple:
+            skin_id_for_path = skin_name.replace(" ", "_")
+            if primary_skin.get("chroma_id"):
+                 skin_id_for_path += f"_chroma{primary_skin.get('chroma_id')}"
+
+            # 3. Call Workspace Manager to extract
+            wad_path = self.overlay_manager.mods_dir.parent / "overlay" / "wad.client"
+            
+            if not wad_path.exists():
+                 log.error(f"[INJECT] wad.client not found at {wad_path}")
+                 return False
+
+            log.info(f"[INJECT] Extracting WAD to workspace for {champ_name} / {skin_id_for_path}")
+            success, msg = self.workspace_manager.extract_and_setup(wad_path, champ_name, skin_id_for_path)
+            
+            if success:
+                log.info(f"[INJECT] Workspace extraction successful: {msg}")
+                log_success(log, f"Extracted to Workspace: {champ_name}/{skin_id_for_path}", "📂")
+            else:
+                log.error(f"[INJECT] Workspace extraction failed: {msg}")
+                report_issue("WORKSPACE_EXTRACT_FAIL", "error", f"Failed to extract to workspace: {msg}")
+            
+            # STOP here - do not run overlay
+            return success
+
+        # --------------------------------------
 
         # Create and run overlay with all mods
         result = self._mk_run_overlay(mod_names, timeout, stop_callback, injection_manager)
