@@ -2134,14 +2134,38 @@
               // Deactivate logic
               currentParsed.regaliaBorderEnabled = false;
               currentParsed.regaliaBannerEnabled = false;
+
+              // Reset rank to actual (via Python bridge)
+              if (bridge) {
+                bridge.send({
+                  type: "spoof-rank",
+                  reset: true
+                });
+              }
+
               await window.DataStore?.set('Rose-plugin-settings', JSON.stringify(currentParsed));
               window.location.reload();
             } else {
               // Activate logic
               currentParsed.regaliaBorderEnabled = true;
               currentParsed.regaliaBannerEnabled = true;
+
+              // Apply rank spoofing immediately (via Python bridge)
+              if (bridge) {
+                bridge.send({
+                  type: "spoof-rank",
+                  queue: "RANKED_SOLO_5x5",
+                  tier: "CHALLENGER",
+                  division: "I"
+                });
+              }
+
+              // Save settings
               await window.DataStore?.set('Rose-plugin-settings', JSON.stringify(currentParsed));
-              await window.DataStore?.set('Rose-quick-activate-challenger', 'pending');
+
+              // Set flag to show promotion on next reload
+              await window.DataStore?.set('Rose-show-promotion-moment', 'true');
+
               window.location.reload();
             }
           } catch (e) {
@@ -2156,6 +2180,10 @@
 
     // Initialize button state
     initQuickChallengerBtn();
+
+    quickChallengerBtn.style.width = "100%";
+    quickChallengerBtn.style.marginRight = "0";
+    quickChallengerBtn.style.display = "block";
 
     form.appendChild(quickChallengerBtn);
 

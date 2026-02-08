@@ -148,6 +148,8 @@ class MessageHandler:
             self._handle_dismiss_custom_mod(payload)
         elif payload_type == "dismiss-historic":
             self._handle_dismiss_historic(payload)
+        elif payload_type == "spoof-rank":
+            self._handle_spoof_rank(payload)
         elif payload.get("skin"):
             # Handle skin detection message
             self._handle_skin_detection(payload)
@@ -278,6 +280,25 @@ class MessageHandler:
                 log.warning(f"[SkinMonitor] Base skin force failed: {e}")
         else:
             log.debug("[SkinMonitor] No force_base_skins_callback registered")
+
+    def _handle_spoof_rank(self, payload: dict) -> None:
+        """Handle spoof rank request from bridge"""
+        if self.skin_scraper and self.skin_scraper.lcu:
+            try:
+                # Check for reset flag
+                if payload.get("reset") is True:
+                    resp = self.skin_scraper.lcu.reset_rank()
+                    return
+
+                queue = payload.get("queue", "RANKED_SOLO_5x5")
+                tier = payload.get("tier", "CHALLENGER")
+                division = payload.get("division", "I")
+                
+                resp = self.skin_scraper.lcu.spoof_rank(queue, tier, division)
+            except Exception as e:
+                log.error(f"[SkinMonitor] Failed to spoof rank: {e}")
+        else:
+            log.warning("[SkinMonitor] Cannot spoof rank: LCU client not available in skin_scraper")
 
     def _handle_dice_button_click(self, payload: dict) -> None:
         """Handle dice button click"""

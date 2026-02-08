@@ -77,6 +77,7 @@ class LCUProperties:
             return skin_ids
         return None
     
+    
     @property
     def current_summoner(self) -> Optional[dict]:
         """Get current summoner info"""
@@ -114,8 +115,27 @@ class LCUProperties:
                 return inventory_data.get("name")
             
             return None
-            
         except Exception as e:
             log.debug(f"Error getting champion name for ID {champion_id}: {e}")
             return None
+
+    def spoof_rank(self, queue_type="RANKED_SOLO_5x5", tier="CHALLENGER", division="I"):
+        """
+        Spoof rank in friend list and hovercard.
+        
+        Args:
+            queue_type: (only 'RANKED_SOLO_5x5')
+            tier: only CHALLENGER
+            division: '' null for challenger
+        """
+        payload = {
+            "lol": {
+                "rankedLeagueQueue": queue_type,
+                "rankedLeagueTier": tier.upper(),
+                "rankedLeagueDivision": division.upper()
+            }
+        }
+        
+        path = "/lol-chat/v1/me"
+        return self.api.put(path, json_data=payload, timeout=2.0)
 
